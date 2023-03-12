@@ -2,29 +2,16 @@
 #include <capstone/capstone.h>
 #include <unicorn/unicorn.h>
 
-#include <cstdio>
-#include <cstdint>
 #include <vector>
-#include <optional>
 #include <string_view>
 #include <memory>
 
-template<typename RT, typename PT>
-constexpr RT cast(PT pt) { return reinterpret_cast<RT>(pt); }
-
-template<typename T>
-constexpr T align(T value, T alignment) {
-    return (value + alignment - 1) & ~(alignment - 1);
-}
-
-#define stringify(value)    # value
-#define concat(a, b)        a # b
-#define check(expr, ...)    if (!bool(expr)) { printf("ASSERT - %s[%d]: ", __FILE__, __LINE__);    \
-                                               printf(__VA_ARGS__); printf("\n"); fflush(stdout);  \
-                                               throw nullptr; }
+#include "pe.h"
+#include "utils.h"
+#include "coredll_symbols.h"
 
 namespace file {
-    std::optional<std::vector<std::byte>> read(std::string_view path) {
+    optional<std::vector<std::byte>> read(std::string_view path) {
         using ptr   = std::unique_ptr<FILE, void(*)(FILE*)>;
         auto closer = [](FILE* f){ if (f) fclose(f); };
 
@@ -37,120 +24,12 @@ namespace file {
                 fseek(file.get(), 0, SEEK_SET);
                 fread(data.data(), 1, size, file.get());
 
-                return std::make_optional(data);
+                return make_optional(data);
             }
         }
 
         return {};
     }
-}
-
-template<typename T>
-struct View {
-
-private:
-};
-
-namespace pe {
-    using BYTE  = uint8_t;
-    using WORD  = uint16_t;
-    using LONG  = uint32_t;
-    using DWORD = uint32_t;
-
-    struct DATA_DIRECTORY {
-        DWORD   VirtualAddress;
-        DWORD   Size;
-    };
-
-    struct DOS_HEADER {                     // DOS .EXE header
-        WORD   e_magic;                     // Magic number
-        WORD   e_cblp;                      // Bytes on last page of file
-        WORD   e_cp;                        // Pages in file
-        WORD   e_crlc;                      // Relocations
-        WORD   e_cparhdr;                   // Size of header in paragraphs
-        WORD   e_minalloc;                  // Minimum extra paragraphs needed
-        WORD   e_maxalloc;                  // Maximum extra paragraphs needed
-        WORD   e_ss;                        // Initial (relative) SS value
-        WORD   e_sp;                        // Initial SP value
-        WORD   e_csum;                      // Checksum
-        WORD   e_ip;                        // Initial IP value
-        WORD   e_cs;                        // Initial (relative) CS value
-        WORD   e_lfarlc;                    // File address of relocation table
-        WORD   e_ovno;                      // Overlay number
-        WORD   e_res[4];                    // Reserved words
-        WORD   e_oemid;                     // OEM identifier (for e_oeminfo)
-        WORD   e_oeminfo;                   // OEM information; e_oemid specific
-        WORD   e_res2[10];                  // Reserved words
-        LONG   e_lfanew;                    // File address of new exe header
-    };
-
-    struct FILE_HEADER {
-        WORD    Machine;
-        WORD    NumberOfSections;
-        DWORD   TimeDateStamp;
-        DWORD   PointerToSymbolTable;
-        DWORD   NumberOfSymbols;
-        WORD    SizeOfOptionalHeader;
-        WORD    Characteristics;
-    };
-
-    struct OPTIONAL_HEADER {
-        WORD    Magic;
-        BYTE    MajorLinkerVersion;
-        BYTE    MinorLinkerVersion;
-        DWORD   SizeOfCode;
-        DWORD   SizeOfInitializedData;
-        DWORD   SizeOfUninitializedData;
-        DWORD   AddressOfEntryPoint;
-        DWORD   BaseOfCode;
-        DWORD   BaseOfData;
-        DWORD   ImageBase;
-        DWORD   SectionAlignment;
-        DWORD   FileAlignment;
-        WORD    MajorOperatingSystemVersion;
-        WORD    MinorOperatingSystemVersion;
-        WORD    MajorImageVersion;
-        WORD    MinorImageVersion;
-        WORD    MajorSubsystemVersion;
-        WORD    MinorSubsystemVersion;
-        DWORD   Win32VersionValue;
-        DWORD   SizeOfImage;
-        DWORD   SizeOfHeaders;
-        DWORD   CheckSum;
-        WORD    Subsystem;
-        WORD    DllCharacteristics;
-        DWORD   SizeOfStackReserve;
-        DWORD   SizeOfStackCommit;
-        DWORD   SizeOfHeapReserve;
-        DWORD   SizeOfHeapCommit;
-        DWORD   LoaderFlags;
-        DWORD   NumberOfRvaAndSizes;
-        DATA_DIRECTORY DataDirectory[16];
-    };
-
-    struct NT_HEADER {
-        DWORD           Signature;
-        FILE_HEADER     FileHeader;
-        OPTIONAL_HEADER OptionalHeader;
-    };
-
-    struct SECTION_HEADER {
-        BYTE    Name[8];
-        union {
-                DWORD   PhysicalAddress;
-                DWORD   VirtualSize;
-        } Misc;
-        DWORD   VirtualAddress;
-        DWORD   SizeOfRawData;
-        DWORD   PointerToRawData;
-        DWORD   PointerToRelocations;
-        DWORD   PointerToLinenumbers;
-        WORD    NumberOfRelocations;
-        WORD    NumberOfLinenumbers;
-        DWORD   Characteristics;
-    };
-
-    constexpr auto rvaToVA(uint32_t rva, )
 }
 
 namespace cpu {
@@ -189,22 +68,316 @@ namespace cpu {
     }
 }
 
+struct Module {
+    const char* name;
+    std::vector<std::pair<const char*, void*>> symbols;
+};
+
+static Module modules[] = {
+    {
+        "COREDLL.dll", {
+            { "__subs", nullptr },
+            { "__muls", nullptr },
+            { "__adds", nullptr },
+            { "__lts", nullptr },
+            { "__divs", nullptr },
+            { "__stod", nullptr },
+            { "atan", nullptr },
+            { "__muld", nullptr },
+            { "__dtos", nullptr },
+            { "fclose", nullptr },
+            { "fflush", nullptr },
+            { "fwrite", nullptr },
+            { "fread", nullptr },
+            { "__led", nullptr },
+            { "fprintf", nullptr },
+            { "fopen", nullptr },
+            { "sprintf", nullptr },
+            { "atoi", nullptr },
+            { "strstr", nullptr },
+            { "fgetc", nullptr },
+            { "strcpy", nullptr },
+            { "__subd", nullptr },
+            { "__eqs", nullptr },
+            { "__itos", nullptr },
+            { "__nes", nullptr },
+            { "__gts", nullptr },
+            { "__stoi", nullptr },
+            { "memset", nullptr },
+            { "__ged", nullptr },
+            { "__divd", nullptr },
+            { "__ltd", nullptr },
+            { "__gtd", nullptr },
+            { "rand", nullptr },
+            { "__ned", nullptr },
+            { "__les", nullptr },
+            { "__addd", nullptr },
+            { "__itod", nullptr },
+            { "memcpy", nullptr },
+            { "__ges", nullptr },
+            { "strncpy", nullptr },
+            { "__dtoi", nullptr },
+            { "sqrt", nullptr },
+            { "atan2", nullptr },
+            { "strlen", nullptr },
+            { "strcmp", nullptr },
+            { "vsprintf", nullptr },
+            { "fseek", nullptr },
+            { "free", nullptr },
+            { "malloc", nullptr },
+            { "__rt_sdiv", nullptr },
+            { "LocalFree", nullptr },
+            { "FormatMessageW", nullptr },
+            { "DeleteFileW", nullptr },
+            { "CreateDirectoryW", nullptr },
+            { "WideCharToMultiByte", nullptr },
+            { "MultiByteToWideChar", nullptr },
+            { "SetFilePointer", nullptr },
+            { "CreateFileW", nullptr },
+            { "WriteFile", nullptr },
+            { "CloseHandle", nullptr },
+            { "__rt_sdiv64by64", nullptr },
+            { "sin", nullptr },
+            { "cos", nullptr },
+            { "tan", nullptr },
+            { "__utod", nullptr },
+            { "__utos", nullptr },
+            { "floor", nullptr },
+            { "ceil", nullptr },
+            { "fabs", nullptr },
+            { "__negs", nullptr },
+            { "__negd", nullptr },
+            { "__rt_udiv", nullptr },
+            { "asin", nullptr },
+            { "__stou", nullptr },
+            { "__eqd", nullptr },
+            { "UpdateWindow", nullptr },
+            { "ShowWindow", nullptr },
+            { "CreateWindowExW", nullptr },
+            { "strncmp", nullptr },
+            { "DefWindowProcW", nullptr },
+            { "MessageBoxW", nullptr },
+            { "PostQuitMessage", nullptr },
+            { "DestroyWindow", nullptr },
+            { "RegisterClassW", nullptr },
+            { "LoadCursorW", nullptr },
+            { "pow", nullptr },
+            { "longjmp", nullptr },
+            { "setjmp", nullptr },
+            { "printf", nullptr },
+            { "feof", nullptr },
+            { "fscanf", nullptr },
+            { "DispatchMessageW", nullptr },
+            { "TranslateMessage", nullptr },
+            { "PeekMessageW", nullptr },
+            { "GetLastError", nullptr },
+            { "GetProcAddressW", nullptr },
+            { "LoadLibraryW", nullptr },
+            { "sscanf", nullptr },
+            { "swprintf", nullptr },
+            { "atof", nullptr },
+            { "waveOutReset", nullptr },
+            { "waveOutClose", nullptr },
+            { "waveOutUnprepareHeader", nullptr },
+            { "waveOutPrepareHeader", nullptr },
+            { "LocalAlloc", nullptr },
+            { "waveOutOpen", nullptr },
+            { "waveOutWrite", nullptr },
+            { "ftell", nullptr },
+            { "VirtualProtect", nullptr },
+            { "GetVersionExW", nullptr },
+            { "QueryPerformanceFrequency", nullptr },
+            { "UnmapViewOfFile", nullptr },
+            { "QueryPerformanceCounter", nullptr },
+            { "Sleep", nullptr },
+            { "GetMessageW", nullptr },
+            { "MsgWaitForMultipleObjectsEx", nullptr },
+            { "CreateEventW", nullptr },
+            { "MapViewOfFile", nullptr },
+            { "CreateFileMappingW", nullptr },
+            { "SetForegroundWindow", nullptr },
+            { "SetWindowPos", nullptr },
+            { "GetWindowRect", nullptr },
+            { "CreateDialogIndirectParamW", nullptr },
+            { "LoadResource", nullptr },
+            { "FindResourceW", nullptr },
+            { "GlobalMemoryStatus", nullptr },
+            { "_XcptFilter", nullptr },
+            { "__C_specific_handler", nullptr }
+        }
+    },
+    { 
+        "WS2.dll", {
+            { "htonl",     nullptr },
+            { "ntohs",     nullptr },
+            { "bind",      nullptr },
+            { "htons",     nullptr },
+            { "ntohl",     nullptr },
+            { "inet_addr", nullptr },
+            { "inet_ntoa", nullptr }
+        }
+    },
+    {
+        "libgles_cm.dll", {
+            { "eglGetConfigs", nullptr },
+            { "eglQueryString", nullptr },
+            { "eglInitialize", nullptr },
+            { "eglGetDisplay", nullptr },
+            { "glGetError", nullptr },
+            { "glClientActiveTexture", nullptr },
+            { "glActiveTexture", nullptr },
+            { "glAlphaFunc", nullptr },
+            { "glAlphaFuncx", nullptr },
+            { "glBindTexture", nullptr },
+            { "glBlendFunc", nullptr },
+            { "glClear", nullptr },
+            { "glClearColor", nullptr },
+            { "glClearColorx", nullptr },
+            { "glClearDepthf", nullptr },
+            { "glClearDepthx", nullptr },
+            { "glClearStencil", nullptr },
+            { "glColorMask", nullptr },
+            { "glColorPointer", nullptr },
+            { "glCompressedTexImage2D", nullptr },
+            { "glCompressedTexSubImage2D", nullptr },
+            { "glCopyTexImage2D", nullptr },
+            { "glCopyTexSubImage2D", nullptr },
+            { "glCullFace", nullptr },
+            { "glDeleteTextures", nullptr },
+            { "glDepthFunc", nullptr },
+            { "glDepthMask", nullptr },
+            { "glDepthRangef", nullptr },
+            { "glDepthRangex", nullptr },
+            { "glDisable", nullptr },
+            { "glDisableClientState", nullptr },
+            { "glDrawArrays", nullptr },
+            { "glDrawElements", nullptr },
+            { "glEnable", nullptr },
+            { "glEnableClientState", nullptr },
+            { "glFinish", nullptr },
+            { "glFlush", nullptr },
+            { "glFrontFace", nullptr },
+            { "eglChooseConfig", nullptr },
+            { "glFrustumx", nullptr },
+            { "glGenTextures", nullptr },
+            { "glGetIntegerv", nullptr },
+            { "glGetString", nullptr },
+            { "glHint", nullptr },
+            { "glLineWidth", nullptr },
+            { "glLineWidthx", nullptr },
+            { "glLoadIdentity", nullptr },
+            { "glLoadMatrixf", nullptr },
+            { "glLoadMatrixx", nullptr },
+            { "glLogicOp", nullptr },
+            { "glMatrixMode", nullptr },
+            { "glNormalPointer", nullptr },
+            { "glOrthof", nullptr },
+            { "glOrthox", nullptr },
+            { "glPopMatrix", nullptr },
+            { "glPushMatrix", nullptr },
+            { "glReadPixels", nullptr },
+            { "glRotatef", nullptr },
+            { "glRotatex", nullptr },
+            { "glScalef", nullptr },
+            { "glScalex", nullptr },
+            { "glScissor", nullptr },
+            { "glShadeModel", nullptr },
+            { "glStencilFunc", nullptr },
+            { "glStencilMask", nullptr },
+            { "glStencilOp", nullptr },
+            { "glTexCoordPointer", nullptr },
+            { "glTexEnvf", nullptr },
+            { "glTexImage2D", nullptr },
+            { "glTexParameterf", nullptr },
+            { "glTexSubImage2D", nullptr },
+            { "glTranslatef", nullptr },
+            { "glTranslatex", nullptr },
+            { "glVertexPointer", nullptr },
+            { "glViewport", nullptr },
+            { "eglGetProcAddress", nullptr },
+            { "eglCreateWindowSurface", nullptr },
+            { "eglCreateContext", nullptr },
+            { "eglGetConfigAttrib", nullptr },
+            { "eglMakeCurrent", nullptr },
+            { "eglDestroyContext", nullptr },
+            { "eglDestroySurface", nullptr },
+            { "eglTerminate", nullptr },
+            { "glFrustumf", nullptr },
+            { "eglGetError", nullptr },
+            { "eglSwapBuffers", nullptr }
+        }
+    }
+};
+
+static void* getModulePointer(const std::string_view& moduleName, const std::string_view& symbolName) {
+    for (auto& mod : modules) {
+        if (mod.name == moduleName) {
+            for (auto& sym : mod.symbols) {
+                if (sym.first == symbolName) {
+                    return &sym.second;
+                }
+            }
+        }
+    }
+
+    return nullptr;
+}
+
 int main(int, const char**) {
-    const auto file = file::read("/Users/chroma/Desktop/preem/roms/Quake/Quake.exe");
+    const auto file = file::read("c:/Users/Oli/Desktop/preem-hle/roms/Quake/Quake.exe");
     check(file, "failed to open file");
 
     const auto* dos = cast<const pe::DOS_HEADER*>(file->data());
     const auto* nt  = cast<const pe::NT_HEADER*>(file->data() + dos->e_lfanew);
 
+    // Gizmondo is a ARM thumb device running Window CE.
     check (nt->FileHeader.Machine == 0x01c2, "expected ARM THUMB.. got (0x%04X)", nt->FileHeader.Machine);
-    const auto* sec = cast<const pe::SECTION_HEADER*>(cast<uintptr_t>(&nt->OptionalHeader) + nt->FileHeader.SizeOfOptionalHeader);
+    
+    const auto sections = [=] {
+        const auto first = cast<pe::SECTION_HEADER*>(cast<uintptr_t>(&nt->OptionalHeader) + nt->FileHeader.SizeOfOptionalHeader);
+        return make_view(first, first + nt->FileHeader.NumberOfSections);
+    }();
 
-    auto emu = cpu::init();
+    auto load = [&](uint32_t rva) {
+        return file->data() + *pe::relativeToOffset(sections, rva);
+    };
 
-    // load sections into proc space
-    for (int i = 0; i < nt->FileHeader.NumberOfSections; i++) {
+    const auto idir  = nt->OptionalHeader.DataDirectory[pe::DirectoryIndex::ImportTable];
+    const auto* desc = cast<const pe::IMPORT_DESCRIPTOR*>(load(idir.VirtualAddress));
+
+    while (desc->Name) {
+        const auto moduleName = cast<const char*>(load(desc->Name));
+        const auto* thunk     = cast<const pe::THUNK_DATA*>(load(desc->FirstThunk));
+
+        while (thunk->u1.AddressOfData) {
+            const auto symbolName = [&]{
+                if (thunk->u1.Ordinal & pe::Flag::ImportOrdinal) {
+                    // COREDLL.dll is the only dll we support ordinal looks up for
+                    check(std::string_view{moduleName} == "COREDLL.dll", "We don't know about '%s'", moduleName);
+                    return [=] {
+                        const auto ord = pe::ordinal(thunk->u1.Ordinal);
+
+                        for (const auto& sym : coredll_symbols) {
+                            if (sym.ord == ord) {
+                                return sym.name;
+                            }
+                        }
+
+                        return (const char*)nullptr;
+                    }();
+                }
+
+                return cast<const char*>(load(thunk->u1.AddressOfData + 2));
+            }();
+
+            auto ptr = getModulePointer(moduleName, symbolName);
+            check(ptr, "We dont implement [%s][%s]", moduleName, symbolName);
+
+            thunk++;
+        }
+
+        desc++;
     }
 
-    cpu::shutdown(emu);
     return 0;
 }
