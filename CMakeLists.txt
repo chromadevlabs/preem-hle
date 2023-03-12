@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 set(CMAKE_CXX_STANDARD 20)
 
-set(UNICORN_ARCH                  "arm" CACHE STRING   "" FORCE) 
+set(UNICORN_ARCH                  "arm" CACHE STRING   "" FORCE)
 set(UNICORN_INSTALL               FALSE CACHE BOOL     "" FORCE)
 set(UNICORN_BUILD_TESTS           FALSE CACHE BOOL     "" FORCE)
 set(BUILD_SHARED_LIBS             FALSE CACHE BOOL     "" FORCE)
@@ -17,8 +17,12 @@ set(SUPPORTED_ARCHITECTURES       ""    CACHE STRING "" FORCE)
 set(SUPPORTED_ARCHITECTURE_LABELS ""    CACHE STRING "" FORCE)
 add_subdirectory(dependencies/capstone)
 
-project(preem)
-add_executable(${PROJECT_NAME} main.cc "pe.h" "utils.h")
+project(preem-hle)
+add_executable(${PROJECT_NAME}
+    main.cc
+    modules.cc
+    utils.cc
+)
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE

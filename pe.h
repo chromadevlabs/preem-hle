@@ -26,6 +26,18 @@ enum Flag {
     ImportOrdinal = 0x80000000
 };
 
+enum SectionFlags {
+    containsCode              = 0x00000020,
+    containsUninitializedData = 0x00000080,
+    memoryExec                = 0x20000000,
+    memoryRead                = 0x40000000,
+    memoryWrite               = 0x80000000
+};
+
+enum DLLFlags {
+    DynamicBase = 0x0040
+};
+
 struct DATA_DIRECTORY {
     uint32_t VirtualAddress;
     uint32_t Size;
