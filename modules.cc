@@ -22,7 +22,7 @@ void module_register_function(const string_view& module, const string_view& symb
 }
 
 const void* module_symbol_lookup(const string_view& module, const string_view& symbol) {
-
+    return nullptr;
 }
 
 const char* module_ordinal_lookup(const string_view& module, uint16_t ordinal) {

@@ -13,8 +13,6 @@ set(CAPSTONE_BUILD_CSTOOL         FALSE CACHE BOOL     "" FORCE)
 set(CAPSTONE_ARCHITECTURE_DEFAULT OFF   CACHE BOOL     "" FORCE)
 set(CAPSTONE_DEBUG                FALSE CACHE BOOL     "" FORCE)
 set(CAPSTONE_INSTALL              FALSE CACHE BOOL     "" FORCE)
-set(SUPPORTED_ARCHITECTURES       ""    CACHE STRING "" FORCE)
-set(SUPPORTED_ARCHITECTURE_LABELS ""    CACHE STRING "" FORCE)
 add_subdirectory(dependencies/capstone)
 
 project(preem-hle)
