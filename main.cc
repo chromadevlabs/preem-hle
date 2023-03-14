@@ -12,7 +12,7 @@ csh cs_context{};
 
 static void disassembler_init() {
     const auto r = cs_open(cs_arch::CS_ARCH_ARM, cs_mode::CS_MODE_THUMB, &cs_context);
-    check(r == CS_ERR_OK, "capstone failed to init");
+    check(r == CS_ERR_OK, "capstone failed to init: %s", cs_strerror (r));
 }
 
 static void disassembler_shutdown() {
@@ -20,8 +20,7 @@ static void disassembler_shutdown() {
 }
 
 struct ProcessContext {
-    uint8_t* base;
-    size_t size;
+    std::vector<uint8_t> base;
 };
 
 static ProcessContext process;
@@ -31,10 +30,27 @@ static bool badMemAccessCallback(uc_engine* uc, uc_mem_type type, uint64_t addre
     return false;
 }
 
-int main(int argc, const char** argv) {
-    check(argc > 1, "need rom path");
+static void dump_mem (uint32_t address, size_t length) {
+    const auto end = address + length;
 
-    auto file = file_load(argv[1]);
+    printf("          00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F\n");
+
+    while (address < end) {
+        const auto stride = std::min<size_t>(16, end - address);
+
+        printf("%08X: ", address);
+        for (size_t j = 0; j < stride; j++)
+            printf("%02X ", process.base[address + j]);
+
+        printf("\n");
+        address += stride;
+    }
+}
+
+int main(int argc, const char** argv) {
+    //check(argc > 1, "need rom path");
+
+    auto file = file_load("c:/users/oli/Desktop/preem-hle/roms/quake/Quake.exe");
     check(file, "failed to open file");
 
     const auto* dos = cast<const pe::DOS_HEADER*>(file->data());
@@ -54,16 +70,6 @@ int main(int argc, const char** argv) {
 
     const auto imageBase   = nt->OptionalHeader.ImageBase;
     const auto entryPoint  = pe::relativeToVirtual(sections, nt->OptionalHeader.AddressOfEntryPoint);
-    const auto processSize = [nt, sections] {
-        size_t size = 0;
-
-        // I know, I know. I can just use the last section but I dont care.
-        for (const auto& s : sections) {
-            size = std::max<size_t>(size, s.VirtualAddress + s.Misc.VirtualSize);
-        }
-
-        return align<size_t>(size, nt->OptionalHeader.SectionAlignment);
-    }();
 
     check(!(nt->OptionalHeader.DllCharacteristics & pe::DLLFlags::DynamicBase), "Erghhh I dont want to support relocations yet");
 
@@ -86,7 +92,7 @@ int main(int argc, const char** argv) {
                 return cast<const char*>(load(thunk->u1.AddressOfData + 2));
             }();
 
-            printf("[%s][%s]\n", moduleName, symbolName);
+            //printf("[%s][%s]\n", moduleName, symbolName);
 
             thunk++;
         }
@@ -94,23 +100,24 @@ int main(int argc, const char** argv) {
         desc++;
     }
 
-    process.base  = new uint8_t[mb(128)];
-    process.size  = processSize;
-    check(process.base, "failed to allocate ram");
+    process.base.resize(mb(128));
+    auto* base = process.base.data();
 
     // Copy sections into process space
     for (const auto& s : sections) {
         const auto dstOffset = s.VirtualAddress;
         const auto srcOffset = s.PointerToRawData;
 
-        printf("[%s]: 0x%08X -> 0x%08X\n", s.Name, srcOffset, dstOffset);
+              auto dst = base + dstOffset;
+        const auto src = file->data() + srcOffset;
 
-        check(dstOffset + s.Misc.VirtualSize < processSize,  "dst is out of bounds");
-        memset(process.base + dstOffset, 0, s.Misc.VirtualSize);
+        printf("[%s]: 0x%08X -> [ 0x%08X - 0x%08X]\n", s.Name, srcOffset, dstOffset, dstOffset + s.Misc.VirtualSize);
+
+        memset(dst, 0, s.Misc.VirtualSize);
 
         if (s.SizeOfRawData > 0) {
             check(srcOffset + s.SizeOfRawData < file->size(), "source is out of bounds");
-            memcpy(process.base + dstOffset, file->data() + srcOffset, s.SizeOfRawData);
+            memcpy(dst, src, s.SizeOfRawData);
         }
     }
 
@@ -118,7 +125,7 @@ int main(int argc, const char** argv) {
     auto r = uc_open(uc_arch::UC_ARCH_ARM, uc_mode::UC_MODE_THUMB, &uc);
     check(r == UC_ERR_OK, "failed to init unicorn. %s", uc_strerror(r));
 
-    r = uc_mem_map_ptr(uc, imageBase, processSize, UC_PROT_ALL, process.base);
+    r = uc_mem_map_ptr(uc, imageBase, process.base.size(), UC_PROT_ALL, base);
     check(r == UC_ERR_OK, "failed to map process memory. %s", uc_strerror(r));
 
     uint32_t value = 0;
@@ -141,12 +148,15 @@ int main(int argc, const char** argv) {
     value = 0x1000 - 4;
     uc_reg_write(uc, UC_ARM_REG_SP,  &value);
 
-    auto pc = *entryPoint;
+    auto pc = 0x1000 + *entryPoint;
     uc_reg_write(uc, UC_ARM_REG_PC,  &pc);
 
-    uc_hook hook;
-    r = uc_hook_add(uc, &hook, UC_HOOK_MEM_INVALID, cast<void*>(badMemAccessCallback), nullptr, 0, processSize);
-    check(r == UC_ERR_OK, "bad hook install: %s\n", uc_strerror(r));
+    //uc_hook hook;
+    //r = uc_hook_add(uc, &hook, UC_HOOK_MEM_INVALID, cast<void*>(badMemAccessCallback), nullptr, 0, processSize);
+    //check(r == UC_ERR_OK, "bad hook install: %s\n", uc_strerror(r));
+
+    //file_save ("dump.bin", process.base);
+    dump_mem(pc, 512);
 
     printf("ImageBase:  0x%08X\n", imageBase);
     printf("EntryPoint: 0x%08X\n", pc);
@@ -156,27 +166,36 @@ int main(int argc, const char** argv) {
         cs_insn* ins{};
         uc_reg_read(uc, UC_ARM_REG_PC, &pc);
 
-        printf("0x%08X:\t", pc);
-
-        const auto c = cs_disasm(cs_context, process.base, 4, pc, 1, &ins);
+        const auto c = cs_disasm(cs_context, base, 32, pc, 1, &ins);
 
         if (c) {
-            for (int i = 0; i < c; i++)
-                printf("%02X %02X %s", pc, process.base[0], process.base[1], ins->mnemonic);
+            for (int i = 0; i < c; i++) {
+                const auto inst = ins[i];
+                 
+                printf("0x%08X: ", inst.address);
+
+                for (int c = 0; c < 4; c++) {
+                    if (c < inst.size)
+                        printf("%02X ", inst.bytes[c]);
+                    else
+                        printf("   ");
+                }
+                    
+                printf("\t%s %s\n", inst.mnemonic, inst.op_str);
+            }
 
             cs_free (ins, c);
         }
 
-        printf("\n");
-
-        r = uc_emu_start(uc, pc, pc + 4, 0, 0);
-        check(r == UC_ERR_OK, "execution failed: %s\n", uc_strerror(r));
+        r = uc_emu_start(uc, pc, pc + 0x1000, 0, 0);
+        if (r != UC_ERR_OK) {
+            printf("%s\n", uc_strerror(r));
+            break;
+        }
     }
 
     disassembler_shutdown();
     uc_close(uc);
-
-    delete[] process.base;
 
     return 0;
 }

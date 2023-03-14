@@ -74,8 +74,9 @@ struct View {
     constexpr const auto  begin() const { return first; }
     constexpr const auto    end() const { return last; }
     constexpr const auto   data() const { return first; }
+    constexpr operator     auto() const { return size() > 0; }
 
-    constexpr operator    auto() const { return size() > 0; }
+    constexpr auto operator[](size_t index) const { return first[index]; }
 
 private:
     T* first;
@@ -94,4 +95,5 @@ constexpr auto make_view(const ContainerT& cont, size_t offset = 0, size_t len =
 }
 
 
-optional<vector<byte>> file_load(const string_view& path);
+optional<vector<uint8_t>> file_load(const string_view& path);
+bool file_save(const string_view& path, const vector<uint8_t>& data);

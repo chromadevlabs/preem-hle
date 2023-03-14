@@ -2,3 +2,4 @@ build
 .vs
 .vscode
 out
+.DS_Store
