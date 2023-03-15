@@ -7,11 +7,9 @@ set(UNICORN_BUILD_TESTS           FALSE CACHE BOOL     "" FORCE)
 set(BUILD_SHARED_LIBS             FALSE CACHE BOOL     "" FORCE)
 add_subdirectory(dependencies/unicorn)
 
-set(BUILD_SHARED_LIBS             FALSE CACHE BOOL     "" FORCE)
-set(CAPSTONE_BUILD_TESTS          FALSE CACHE BOOL     "" FORCE)
 set(CAPSTONE_BUILD_CSTOOL         FALSE CACHE BOOL     "" FORCE)
-set(CAPSTONE_DEBUG                FALSE CACHE BOOL     "" FORCE)
-set(CAPSTONE_INSTALL              FALSE CACHE BOOL     "" FORCE)
+set(CAPSTONE_BUILD_TESTS          FALSE CACHE BOOL     "" FORCE)
+set(CAPSTONE_BUILD_SHARED         FALSE CACHE BOOL     "" FORCE)
 add_subdirectory(dependencies/capstone)
 
 project(preem-hle)
@@ -21,8 +19,14 @@ add_executable(${PROJECT_NAME}
     utils.cc
 )
 
+target_include_directories(${PROJECT_NAME}
+    PRIVATE
+        "dependencies/unicorn/include"
+        "dependencies/capstone/include"
+)
+
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
         unicorn
-        capstone
+        capstone-static
 )

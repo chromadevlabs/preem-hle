@@ -74,6 +74,8 @@ struct View {
     constexpr const auto  begin() const { return first; }
     constexpr const auto    end() const { return last; }
     constexpr const auto   data() const { return first; }
+    constexpr const auto& front() const { return first[0]; }
+    constexpr const auto&  back() const { return first[size()-1]; }
     constexpr operator     auto() const { return size() > 0; }
 
     constexpr auto operator[](size_t index) const { return first[index]; }

@@ -2,19 +2,17 @@ This file credits all the contributors of the Capstone engine project.
 
 Key developers
 ==============
-Nguyen Anh Quynh <aquynh -at- gmail.com>
-Chenxu Wu (kabeor) kabeor@qiling.io
+1. Nguyen Anh Quynh <aquynh -at- gmail.com>
+	- Core engine
+	- Bindings: Python, Ruby, OCaml, Java, C#
 
-
-Past key developers
-===================
-Tan Sheng Di <shengdi -at- coseinc.com>
+2. Tan Sheng Di <shengdi -at- coseinc.com>
 	- Bindings: Ruby
 
-Ben Nagy <ben -at- coseinc.com>
+3. Ben Nagy <ben -at- coseinc.com>
 	- Bindings: Ruby, Go
 
-Dang Hoang Vu <dang.hvu -at- gmail.com>
+4. Dang Hoang Vu <dang.hvu -at- gmail.com>
 	- Bindings: Java
 
 
@@ -79,10 +77,3 @@ Fotis Loukos: TMS320C64x architecture.
 Wolfgang Schwotzer: M680X architecture.
 Philippe Antoine: Integration with oss-fuzz and various fixes.
 Stephen Eckels (stevemk14ebr): x86 encoding features
-Tong Yu(Spike) & Kai Jern, Lau (xwings): WASM architecture.
-Sebastian Macke: MOS65XX architecture
-Ilya Leoshkevich: SystemZ architecture improvements.
-Do Minh Tuan: Regression testing tool (cstest)
-david942j: BPF (both classic and extended) architecture.
-fanfuqiang & citypw & porto703 : RISCV architecture.
-Josh "blacktop" Maine: Arm64 architecture improvements.

@@ -4,14 +4,13 @@
 #include <stdio.h>
 #include <capstone/capstone.h>
 
-void print_insn_detail_m680x(csh handle, cs_insn *insn);
+void print_string_hex(char *comment, unsigned char *str, size_t len);
 
 static const char *s_access[] = {
 	"UNCHANGED", "READ", "WRITE", "READ | WRITE",
 };
 
-
-static void print_read_write_regs(csh handle, cs_detail *detail)
+void print_read_write_regs(csh handle, cs_detail *detail)
 {
 	int i;
 

@@ -1,56 +1,55 @@
 
-#include <capstone/capstone.h>
 #include <unicorn/unicorn.h>
-
-#include <vector>
+#include <capstone/capstone.h>
 
 #include "pe.h"
 #include "modules.h"
 #include "utils.h"
 
-csh cs_context{};
-
-static void disassembler_init() {
-    const auto r = cs_open(cs_arch::CS_ARCH_ARM, cs_mode::CS_MODE_THUMB, &cs_context);
-    check(r == CS_ERR_OK, "capstone failed to init: %s", cs_strerror (r));
-}
-
-static void disassembler_shutdown() {
-    cs_close(&cs_context);
-}
-
-struct ProcessContext {
-    std::vector<uint8_t> base;
-};
-
-static ProcessContext process;
+static std::vector<uint8_t> process;
+static uc_engine*           uc = nullptr;
+static csh                  cs = 0;
 
 static bool badMemAccessCallback(uc_engine* uc, uc_mem_type type, uint64_t address, int size, int64_t value, void* user) {
-    printf("0x%08X: BAD MEMORY ACCESS!!\n", address);
+    switch (type) {
+        case uc_mem_type::UC_MEM_READ_UNMAPPED: {
+            printf("0x%08X: UNMAPPED READ!!\n", address);
+        } break;
+
+        default: {
+            printf("0x%08X: UNHANDLED ERROR!!\n", address);
+        } break;
+    }
+
     return false;
 }
 
-static void dump_mem (uint32_t address, size_t length) {
-    const auto end = address + length;
+void traceCallback(uc_engine* uc, uint64_t address, uint32_t size, void* user_data) {
+    uint8_t code[32]{};
+    cs_insn* insn = nullptr;
 
-    printf("          00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F\n");
+    uc_mem_read(uc, address, code, size);
 
-    while (address < end) {
-        const auto stride = std::min<size_t>(16, end - address);
+    printf("0x%08X: ", address);
 
-        printf("%08X: ", address);
-        for (size_t j = 0; j < stride; j++)
-            printf("%02X ", process.base[address + j]);
-
-        printf("\n");
-        address += stride;
+    for (int i = 0; i < 4; i++) {
+        if (i < size) printf("%02X", code[i]); else printf("  ");
     }
+
+    if (const auto n = cs_disasm(cs, code, size, address, 1, &insn)) {
+        printf("\t%s %s\n", insn[0].mnemonic, insn[0].op_str);
+        cs_free(insn, n);
+        return;
+    }
+
+    printf("\tUnknown???\n");
 }
 
 int main(int argc, const char** argv) {
-    //check(argc > 1, "need rom path");
+    const auto path = argc > 1 ? argv[1]
+                               : "/Users/chroma/Desktop/preem/roms/quake/Quake.exe";
 
-    auto file = file_load("c:/users/oli/Desktop/preem-hle/roms/quake/Quake.exe");
+    auto file = file_load(path);
     check(file, "failed to open file");
 
     const auto* dos = cast<const pe::DOS_HEADER*>(file->data());
@@ -64,44 +63,13 @@ int main(int argc, const char** argv) {
         return make_view(first, first + nt->FileHeader.NumberOfSections);
     }();
 
-    auto load = [&](uint32_t rva) {
-        return file->data() + *pe::relativeToOffset(sections, rva);
-    };
-
     const auto imageBase   = nt->OptionalHeader.ImageBase;
-    const auto entryPoint  = pe::relativeToVirtual(sections, nt->OptionalHeader.AddressOfEntryPoint);
+    const auto entryPoint  = nt->OptionalHeader.AddressOfEntryPoint;
 
     check(!(nt->OptionalHeader.DllCharacteristics & pe::DLLFlags::DynamicBase), "Erghhh I dont want to support relocations yet");
 
-    // Apply import table fixups to file data and copy sections after
-    const auto idir  = nt->OptionalHeader.DataDirectory[pe::DirectoryIndex::ImportTable];
-    const auto* desc = cast<const pe::IMPORT_DESCRIPTOR*>(load(idir.VirtualAddress));
-
-    while (desc->Name) {
-        const auto moduleName = cast<const char*>(load(desc->Name));
-        const auto* thunk     = cast<const pe::THUNK_DATA*>(load(desc->FirstThunk));
-
-        while (thunk->u1.AddressOfData) {
-            const auto symbolName = [&]{
-                if (thunk->u1.Ordinal & pe::Flag::ImportOrdinal) {
-                    // COREDLL.dll is the only dll we support ordinals
-                    check(std::string_view{moduleName} == "COREDLL.dll", "We don't know about '%s'", moduleName);
-                    return module_ordinal_lookup(moduleName, pe::ordinal(thunk->u1.Ordinal));
-                }
-
-                return cast<const char*>(load(thunk->u1.AddressOfData + 2));
-            }();
-
-            //printf("[%s][%s]\n", moduleName, symbolName);
-
-            thunk++;
-        }
-
-        desc++;
-    }
-
-    process.base.resize(mb(128));
-    auto* base = process.base.data();
+    process.resize(mb(128));
+    auto* base = process.data();
 
     // Copy sections into process space
     for (const auto& s : sections) {
@@ -111,7 +79,7 @@ int main(int argc, const char** argv) {
               auto dst = base + dstOffset;
         const auto src = file->data() + srcOffset;
 
-        printf("[%s]: 0x%08X -> [ 0x%08X - 0x%08X]\n", s.Name, srcOffset, dstOffset, dstOffset + s.Misc.VirtualSize);
+        printf("[%-8s]: 0x%08X -> [ 0x%08X - 0x%08X]\n", s.Name, srcOffset, dstOffset, dstOffset + s.Misc.VirtualSize);
 
         memset(dst, 0, s.Misc.VirtualSize);
 
@@ -121,11 +89,46 @@ int main(int argc, const char** argv) {
         }
     }
 
-    uc_engine* uc{};
-    auto r = uc_open(uc_arch::UC_ARCH_ARM, uc_mode::UC_MODE_THUMB, &uc);
+    auto ptr = [sections](uint32_t address)->uint8_t* {
+        return process.data() + address;
+    };
+
+    // Apply import table fixups
+    const auto idir  = nt->OptionalHeader.DataDirectory[pe::DirectoryIndex::ImportTable];
+    auto*      desc  = cast<pe::IMPORT_DESCRIPTOR*>(ptr(idir.VirtualAddress));
+
+    while (desc->Name) {
+        const auto moduleName = cast<const char*>(ptr(desc->Name));
+        auto*      thunk      = cast<pe::THUNK_DATA*>(ptr(desc->FirstThunk));
+
+        while (thunk->u1.AddressOfData) {
+            const auto symbolName = [&]{
+                if (thunk->u1.Ordinal & pe::Flag::ImportOrdinal) {
+                    // COREDLL.dll is the only dll we support ordinals
+                    check(std::string_view{moduleName} == "COREDLL.dll", "We don't know about '%s'", moduleName);
+                    return module_ordinal_lookup(moduleName, pe::ordinal(thunk->u1.Ordinal));
+                }
+
+                return cast<const char*>(ptr(thunk->u1.AddressOfData + 2));
+            }();
+
+            thunk->u1.Function = 0xdeadbeef;
+
+            printf("[%s][%s]\n", moduleName, symbolName);
+
+            thunk++;
+        }
+
+        desc++;
+    }
+
+    auto cr = cs_open(cs_arch::CS_ARCH_ARM, cs_mode::CS_MODE_ARM, &cs);
+    check(cr == CS_ERR_OK, "failed to init capstone. %s\n", cs_strerror(cr));
+
+    auto r = uc_open(uc_arch::UC_ARCH_ARM, uc_mode::UC_MODE_ARM, &uc);
     check(r == UC_ERR_OK, "failed to init unicorn. %s", uc_strerror(r));
 
-    r = uc_mem_map_ptr(uc, imageBase, process.base.size(), UC_PROT_ALL, base);
+    r = uc_mem_map_ptr(uc, imageBase, process.size(), UC_PROT_ALL, base);
     check(r == UC_ERR_OK, "failed to map process memory. %s", uc_strerror(r));
 
     uint32_t value = 0;
@@ -145,56 +148,33 @@ int main(int argc, const char** argv) {
     uc_reg_write(uc, UC_ARM_REG_R13, &value);
     uc_reg_write(uc, UC_ARM_REG_R14, &value);
 
-    value = 0x1000 - 4;
+    value = process.size() - 4;
     uc_reg_write(uc, UC_ARM_REG_SP,  &value);
 
-    auto pc = 0x1000 + *entryPoint;
+    auto pc = imageBase + entryPoint;
     uc_reg_write(uc, UC_ARM_REG_PC,  &pc);
 
-    //uc_hook hook;
-    //r = uc_hook_add(uc, &hook, UC_HOOK_MEM_INVALID, cast<void*>(badMemAccessCallback), nullptr, 0, processSize);
-    //check(r == UC_ERR_OK, "bad hook install: %s\n", uc_strerror(r));
+    uc_hook hook = 0;
+    r = uc_hook_add(uc, &hook, UC_HOOK_MEM_INVALID,
+                    cast<void*>(badMemAccessCallback), nullptr,
+                    0, process.size());
+    check(r == UC_ERR_OK, "bad hook install: %s\n", uc_strerror(r));
 
-    //file_save ("dump.bin", process.base);
-    dump_mem(pc, 512);
+    hook = 0;
+    r = uc_hook_add(uc, &hook, UC_HOOK_CODE,
+                    cast<void*>(traceCallback), nullptr,
+                    0, process.size());
+    check(r == UC_ERR_OK, "bad hook install: %s\n", uc_strerror(r));
 
     printf("ImageBase:  0x%08X\n", imageBase);
     printf("EntryPoint: 0x%08X\n", pc);
-    disassembler_init();
 
-    while (true) {
-        cs_insn* ins{};
-        uc_reg_read(uc, UC_ARM_REG_PC, &pc);
-
-        const auto c = cs_disasm(cs_context, base, 32, pc, 1, &ins);
-
-        if (c) {
-            for (int i = 0; i < c; i++) {
-                const auto inst = ins[i];
-                 
-                printf("0x%08X: ", inst.address);
-
-                for (int c = 0; c < 4; c++) {
-                    if (c < inst.size)
-                        printf("%02X ", inst.bytes[c]);
-                    else
-                        printf("   ");
-                }
-                    
-                printf("\t%s %s\n", inst.mnemonic, inst.op_str);
-            }
-
-            cs_free (ins, c);
-        }
-
-        r = uc_emu_start(uc, pc, pc + 0x1000, 0, 0);
-        if (r != UC_ERR_OK) {
-            printf("%s\n", uc_strerror(r));
-            break;
-        }
+    r = uc_emu_start(uc, pc, pc + process.size(), 0, 0);
+    if (r != UC_ERR_OK) {
+        printf("%s\n", uc_strerror(r));
     }
 
-    disassembler_shutdown();
+    cs_close(&cs);
     uc_close(uc);
 
     return 0;

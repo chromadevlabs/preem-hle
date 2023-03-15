@@ -210,7 +210,7 @@ const char *Mips_reg_name(csh handle, unsigned int reg)
 #endif
 }
 
-static const insn_map insns[] = {
+static insn_map insns[] = {
 	// dummy item
 	{
 		0, 0,

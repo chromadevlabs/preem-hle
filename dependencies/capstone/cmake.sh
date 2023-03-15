@@ -4,9 +4,9 @@
 # Build Capstone libs for specified architecture, or all if none is specified (libcapstone.so & libcapstone.a) on *nix with CMake & make
 # By Nguyen Anh Quynh, Jorn Vernee, 2019
 
-CMAKE_FLAGS="-DCMAKE_BUILD_TYPE=Release"
+FLAGS="-DCMAKE_BUILD_TYPE=Release"
 # Uncomment below line to compile in Diet mode
-# CMAKE_FLAGS+=" -DCAPSTONE_BUILD_DIET=ON"
+# FLAGS+=" -DCAPSTONE_BUILD_DIET=ON"
 
 case $1 in
   ARM)
@@ -45,28 +45,16 @@ case $1 in
   EVM)
     ARCH=EVM
     ;;
-  MOS65XX)
-    ARCH=MOS65XX
-    ;;
-  WASM)
-    ARCH=WASM
-    ;;
-  BPF)
-    ARCH=BPF
-    ;;
-  RISCV)
-    ARCH=RISCV
-    ;;
   *)
     ;;
 esac
 
-if [ -z "${ARCH}" ]; then
-  CMAKE_FLAGS="${CMAKE_FLAGS} -DCAPSTONE_ARCHITECTURE_DEFAULT=ON"
+if [ "x${ARCH}" = "x" ]; then
+  FLAGS+=" -DCAPSTONE_ARCHITECTURE_DEFAULT=ON"
 else
-  CMAKE_FLAGS="${CMAKE_FLAGS} -DCAPSTONE_ARCHITECTURE_DEFAULT=OFF -DCAPSTONE_${ARCH}_SUPPORT=ON"
+  FLAGS+=" -DCAPSTONE_ARCHITECTURE_DEFAULT=OFF -DCAPSTONE_${ARCH}_SUPPORT=ON"
 fi
 
-cmake ${CMAKE_FLAGS} ..
+cmake $FLAGS ..
 
 make -j8

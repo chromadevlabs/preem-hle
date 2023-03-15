@@ -1,5 +1,5 @@
 /* Capstone Disassembly Engine */
-/* By Nguyen Anh Quynh <aquynh@gmail.com>, 2013-2019 */
+/* By Nguyen Anh Quynh <aquynh@gmail.com>, 2013-2015 */
 
 #if defined(CAPSTONE_HAS_OSXKERNEL)
 #include <Availability.h>
@@ -17,9 +17,11 @@
 
 void MCInst_Init(MCInst *inst)
 {
-	// unnecessary to initialize in loop . its expensive and inst->size shuold be honored
-	inst->Operands[0].Kind = kInvalid;
-	inst->Operands[0].ImmVal = 0;
+	unsigned int i;
+
+	for (i = 0; i < 48; i++) {
+		inst->Operands[i].Kind = kInvalid;
+	}
 
 	inst->Opcode = 0;
 	inst->OpcodePub = 0;
@@ -30,7 +32,6 @@ void MCInst_Init(MCInst *inst)
 	inst->ac_idx = 0;
 	inst->popcode_adjust = 0;
 	inst->assembly[0] = '\0';
-	inst->wasm_data.type = WASM_OP_INVALID;
 	inst->xAcquireRelease = 0;
 }
 
