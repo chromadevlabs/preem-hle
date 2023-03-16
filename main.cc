@@ -6,9 +6,17 @@
 #include "modules.h"
 #include "utils.h"
 
-static std::vector<uint8_t> process;
-static uc_engine*           uc = nullptr;
-static csh                  cs = 0;
+struct JumpAddress {
+    std::string module;
+    std::string proc;
+    uint32_t fixupAddress;
+    void* hostPointer;
+};
+
+static std::vector<uint8_t>     process;
+static std::vector<JumpAddress> jumpTable;
+static uc_engine*               uc = nullptr;
+static csh                      cs = 0;
 
 static bool badMemAccessCallback(uc_engine* uc, uc_mem_type type, uint64_t address, int size, int64_t value, void* user) {
     switch (type) {
@@ -47,7 +55,7 @@ void traceCallback(uc_engine* uc, uint64_t address, uint32_t size, void* user_da
 
 int main(int argc, const char** argv) {
     const auto path = argc > 1 ? argv[1]
-                               : "/Users/chroma/Desktop/preem/roms/quake/Quake.exe";
+                               : PREEM_HLE_ROM_PATH "/quake/Quake.exe";
 
     auto file = file_load(path);
     check(file, "failed to open file");
@@ -94,8 +102,8 @@ int main(int argc, const char** argv) {
     };
 
     // Apply import table fixups
-    const auto idir  = nt->OptionalHeader.DataDirectory[pe::DirectoryIndex::ImportTable];
-    auto*      desc  = cast<pe::IMPORT_DESCRIPTOR*>(ptr(idir.VirtualAddress));
+    const auto idir        = nt->OptionalHeader.DataDirectory[pe::DirectoryIndex::ImportTable];
+    auto*      desc        = cast<pe::IMPORT_DESCRIPTOR*>(ptr(idir.VirtualAddress));
 
     while (desc->Name) {
         const auto moduleName = cast<const char*>(ptr(desc->Name));
@@ -112,9 +120,10 @@ int main(int argc, const char** argv) {
                 return cast<const char*>(ptr(thunk->u1.AddressOfData + 2));
             }();
 
-            thunk->u1.Function = 0xdeadbeef;
-
-            printf("[%s][%s]\n", moduleName, symbolName);
+            jumpTable.push_back({ moduleName, 
+                                  symbolName, 
+                                  thunk->u1.Function & ~pe::ImportOrdinal, 
+                                  nullptr });
 
             thunk++;
         }
@@ -131,6 +140,7 @@ int main(int argc, const char** argv) {
     r = uc_mem_map_ptr(uc, imageBase, process.size(), UC_PROT_ALL, base);
     check(r == UC_ERR_OK, "failed to map process memory. %s", uc_strerror(r));
 
+    // TODO:
     uint32_t value = 0;
     uc_reg_write(uc, UC_ARM_REG_R0,  &value);
     uc_reg_write(uc, UC_ARM_REG_R1,  &value);

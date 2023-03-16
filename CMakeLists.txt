@@ -19,6 +19,11 @@ add_executable(${PROJECT_NAME}
     utils.cc
 )
 
+target_compile_definitions(${PROJECT_NAME}
+    PRIVATE
+        -DPREEM_HLE_ROM_PATH="${PROJECT_SOURCE_DIR}/roms"
+)
+
 target_include_directories(${PROJECT_NAME}
     PRIVATE
         "dependencies/unicorn/include"
