@@ -1,3 +1,0 @@
-#!/bin/python
-
-import sys;

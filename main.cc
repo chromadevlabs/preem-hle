@@ -2,30 +2,78 @@
 #include <unicorn/unicorn.h>
 #include <capstone/capstone.h>
 
+#include <string>
+
 #include "pe.h"
 #include "modules.h"
 #include "utils.h"
 
-struct JumpAddress {
+namespace specs {
+    const auto ram = mb(128);
+}
+
+struct JumpEntry {
     std::string module;
-    std::string proc;
-    uint32_t fixupAddress;
-    void* hostPointer;
+    std::string func;
+    void* ptr;
 };
 
 static std::vector<uint8_t>     process;
-static std::vector<JumpAddress> jumpTable;
-static uc_engine*               uc = nullptr;
-static csh                      cs = 0;
+static std::vector<uint32_t>    jumpTable;
+static std::vector<JumpEntry>   jumpMap;
 
-static bool badMemAccessCallback(uc_engine* uc, uc_mem_type type, uint64_t address, int size, int64_t value, void* user) {
+static uc_engine*               uc               = nullptr;
+static csh                      cs               = 0;
+static int                      imageBase        = 0;
+static constexpr auto           jumpTableAddress = 0x0000;
+static constexpr auto           jumpTableSize    = 0x1000;
+
+#include "coredll.cc"
+
+void dump(const char* path, const void* src, int len) {
+    if (auto* f = fopen(path, "wb")) {
+        fwrite(src, 1, len, f);
+        fclose(f);
+    }
+}
+
+static bool jumpTableCallback(uc_engine* uc, uc_mem_type type, uint64_t address, int size, int64_t value, void* user) {
+    printf("0x%08X: 0x%08X\n", address, value);
+    return false;
+}
+
+static bool badMemAccessCallback(uc_engine* uc, uc_mem_type type, uint64_t address, int size, int64_t value, void*) {
     switch (type) {
         case uc_mem_type::UC_MEM_READ_UNMAPPED: {
             printf("0x%08X: UNMAPPED READ!!\n", address);
         } break;
 
+        case uc_mem_type::UC_MEM_FETCH_PROT: {
+            const auto  index = (address - jumpTableAddress) / 4;
+            const auto& p     = jumpMap[index];
+
+            uint32_t r[13]{};
+
+            for (int i = 0; i <= 12; i++) {
+                uc_reg_read(uc, UC_ARM_REG_R0 + i, &r[i]);
+                printf("r[%d]: 0x%08X\n", i, r[i]);
+            }
+
+            auto arg0 = process.data() + r[0] - imageBase;
+
+            GlobalMemoryStatus((MEMORYSTATUS*)arg0);
+            printf("API CALL!!! [%s][%s]\n", p.module.c_str(), p.func.c_str());
+
+            // br lr
+            uint32_t addr;
+            uc_reg_read(uc,  UC_ARM_REG_LR, &addr);
+            uc_reg_write(uc, UC_ARM_REG_PC, &addr);
+
+            return true;
+        } break;
+
         default: {
-            printf("0x%08X: UNHANDLED ERROR!!\n", address);
+            printf("0x%08X: UNHANDLED ERROR (%d)!!\n", address, type);
         } break;
     }
 
@@ -71,12 +119,12 @@ int main(int argc, const char** argv) {
         return make_view(first, first + nt->FileHeader.NumberOfSections);
     }();
 
-    const auto imageBase   = nt->OptionalHeader.ImageBase;
-    const auto entryPoint  = nt->OptionalHeader.AddressOfEntryPoint;
+               imageBase  = nt->OptionalHeader.ImageBase;
+    const auto entryPoint = nt->OptionalHeader.AddressOfEntryPoint;
 
     check(!(nt->OptionalHeader.DllCharacteristics & pe::DLLFlags::DynamicBase), "Erghhh I dont want to support relocations yet");
 
-    process.resize(mb(128));
+    process.resize(specs::ram);
     auto* base = process.data();
 
     // Copy sections into process space
@@ -112,7 +160,6 @@ int main(int argc, const char** argv) {
         while (thunk->u1.AddressOfData) {
             const auto symbolName = [&]{
                 if (thunk->u1.Ordinal & pe::Flag::ImportOrdinal) {
-                    // COREDLL.dll is the only dll we support ordinals
                     check(std::string_view{moduleName} == "COREDLL.dll", "We don't know about '%s'", moduleName);
                     return module_ordinal_lookup(moduleName, pe::ordinal(thunk->u1.Ordinal));
                 }
@@ -120,10 +167,12 @@ int main(int argc, const char** argv) {
                 return cast<const char*>(ptr(thunk->u1.AddressOfData + 2));
             }();
 
-            jumpTable.push_back({ moduleName, 
-                                  symbolName, 
-                                  thunk->u1.Function & ~pe::ImportOrdinal, 
-                                  nullptr });
+            jumpMap.push_back({ moduleName, symbolName, nullptr });
+            const auto addr = jumpTableAddress + (jumpTable.size() * 4);
+
+            //printf("[%s][%s]: 0x%08X\n", moduleName, symbolName, addr);
+            jumpTable.push_back(addr);
+            thunk->u1.Function = addr;
 
             thunk++;
         }
@@ -131,8 +180,10 @@ int main(int argc, const char** argv) {
         desc++;
     }
 
-    auto cr = cs_open(cs_arch::CS_ARCH_ARM, cs_mode::CS_MODE_ARM, &cs);
-    check(cr == CS_ERR_OK, "failed to init capstone. %s\n", cs_strerror(cr));
+    {
+        auto r = cs_open(cs_arch::CS_ARCH_ARM, cs_mode::CS_MODE_ARM, &cs);
+        check(r == CS_ERR_OK, "failed to init capstone. %s\n", cs_strerror(r));
+    }
 
     auto r = uc_open(uc_arch::UC_ARCH_ARM, uc_mode::UC_MODE_ARM, &uc);
     check(r == UC_ERR_OK, "failed to init unicorn. %s", uc_strerror(r));
@@ -140,8 +191,11 @@ int main(int argc, const char** argv) {
     r = uc_mem_map_ptr(uc, imageBase, process.size(), UC_PROT_ALL, base);
     check(r == UC_ERR_OK, "failed to map process memory. %s", uc_strerror(r));
 
+    r = uc_mem_map_ptr(uc, jumpTableAddress, jumpTableSize, UC_PROT_READ, jumpTable.data());
+    check(r == UC_ERR_OK, "failed to map jump table. %s", uc_strerror(r));
+
     // TODO:
-    uint32_t value = 0;
+    const uint32_t value = 0;
     uc_reg_write(uc, UC_ARM_REG_R0,  &value);
     uc_reg_write(uc, UC_ARM_REG_R1,  &value);
     uc_reg_write(uc, UC_ARM_REG_R2,  &value);
@@ -158,10 +212,10 @@ int main(int argc, const char** argv) {
     uc_reg_write(uc, UC_ARM_REG_R13, &value);
     uc_reg_write(uc, UC_ARM_REG_R14, &value);
 
-    value = process.size() - 4;
-    uc_reg_write(uc, UC_ARM_REG_SP,  &value);
+    const auto sp = process.size() - mb(2);
+    auto       pc = imageBase + entryPoint;
 
-    auto pc = imageBase + entryPoint;
+    uc_reg_write(uc, UC_ARM_REG_SP,  &sp);
     uc_reg_write(uc, UC_ARM_REG_PC,  &pc);
 
     uc_hook hook = 0;
@@ -175,6 +229,12 @@ int main(int argc, const char** argv) {
                     cast<void*>(traceCallback), nullptr,
                     0, process.size());
     check(r == UC_ERR_OK, "bad hook install: %s\n", uc_strerror(r));
+
+    hook = 0;
+    r = uc_hook_add(uc, &hook, UC_HOOK_MEM_READ,
+                    cast<void*>(jumpTableCallback), nullptr,
+                    jumpTableAddress, jumpTableAddress + jumpTableSize);
+    check(r == UC_ERR_OK, "failed to hook jump table: %s\n", uc_strerror(r));
 
     printf("ImageBase:  0x%08X\n", imageBase);
     printf("EntryPoint: 0x%08X\n", pc);

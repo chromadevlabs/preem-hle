@@ -1,26 +1,34 @@
 #!/bin/python
 
-import pefile
-import os
-import sys
-import pathlib
+import sys, re, os
 
-def symbol_find(name):
-    for root, dir, files in os.walk("C:/Users/oli/Downloads/Armv4i/Armv4i"):
-        for file in files:
-            if file.endswith(".h"):
-                with open(os.path.join(root, file)) as f:
-                    for line in f.readlines():
-                        if line.__contains__(name):
-                            print(f"Found {name} in {file}: {line.rstrip()}")
-                            return
+functions = []
 
-pe = pefile.PE(sys.argv[1])
+def extract_functions(code):
+    pattern = r'^(\w+)\s+(\w+)\s*\(([^)]*)\);'
+    regex = re.compile(pattern, re.MULTILINE)
 
-for sym in pe.DIRECTORY_ENTRY_EXPORT.symbols:
-    symbol_find(sym.name.decode())
+    blacklist = [ "WINAPI", "STDAPI",  "HRESULT",
+                  "__in",    "__out",  "struct" ]
 
-#print(f"struct {{ uint16_t ord; const char* name; }} static const {sys.env[2]}_symbols[] = {{")
-#for sym in pe.DIRECTORY_ENTRY_EXPORT.symbols:
-#    print(f"{{ {hex(sym.ordinal)}, \"{sym.name.decode()}\" }},")
-#print("};")
+    for word in blacklist:
+        code = code.replace(word, "")
+
+    matches = regex.findall(code)
+    functions = [(match[0], match[1], match[2].split(',')) for match in matches]
+
+    return functions
+
+# load all functions
+for root, directories, files in os.walk(sys.argv[1]):
+    for file in files:
+        with open(os.path.join(root, file)) as sourceFile:
+            for func in extract_functions(sourceFile.read()):
+                ret  = func[0].strip()
+                name = func[1].strip()
+
+                args = [re.sub(r'//.*?\n', '', arg.strip()) for arg in func[2]]
+                args = [re.sub(r'//.*?\n|/\*.*?\*/', '', arg, flags=re.DOTALL) for arg in args]
+                args = [re.sub(r'\s{2,}', ' ', arg) for arg in args]
+
+                print(f"{ret} {name} {args}")
