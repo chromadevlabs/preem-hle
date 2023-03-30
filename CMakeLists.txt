@@ -17,6 +17,7 @@ add_executable(${PROJECT_NAME}
     main.cc
     modules.cc
     utils.cc
+    allocator.cc
 )
 
 target_compile_definitions(${PROJECT_NAME}

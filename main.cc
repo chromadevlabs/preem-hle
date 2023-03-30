@@ -1,12 +1,10 @@
 
 #include <unicorn/unicorn.h>
-#include <capstone/capstone.h>
-
-#include <string>
 
 #include "pe.h"
 #include "modules.h"
 #include "utils.h"
+#include "allocator.h"
 
 namespace specs {
     const auto ram = mb(128);
@@ -18,62 +16,129 @@ struct JumpEntry {
     void* ptr;
 };
 
-static std::vector<uint8_t>     process;
-static std::vector<uint32_t>    jumpTable;
-static std::vector<JumpEntry>   jumpMap;
+/* ------------ MemoryMap ------------
+0x07FFFFFF -> STACK_END
+0x07E00000 -> STACK_START      <0x07E00000 - 0x07FFFFFF>
+0x07DFFFFF -> MEMORY_END
+0x00A00000 -> MEMORY_START     <0x00A00000 - 0x07DFFFFF>
+0x009B2430 -> SECTIONS_END
+0x00011000 -> SECTIONS_START   <0x00011000 - 0x009B2430>
+0x00010000 -> IMAGEBASE
+0x00001000 -> JUMP_TABLE_END
+0x00000000 -> JUMP_TABLE_START <0x00000000 - 0x00001000>
+   ------------------------------------*/
 
-static uc_engine*               uc               = nullptr;
-static csh                      cs               = 0;
-static int                      imageBase        = 0;
-static constexpr auto           jumpTableAddress = 0x0000;
-static constexpr auto           jumpTableSize    = 0x1000;
+static std::vector<uint8_t>   process;
+static std::vector<uint32_t>  jumpTable;
+static std::vector<JumpEntry> jumpMap;
+static uc_engine*             uc               = nullptr;
+static uint32_t               imageBase        = 0;
+static const Range<uint32_t>  stackRange       = { 0x07E00000, 0x08000000 };
+static const Range<uint32_t>  memoryRange      = { 0x00A00000, 0x07DFFFFF };
+static const Range<uint32_t>  jumpTableRange   = { 0x00000000, 0x00001000 };
 
 #include "coredll.cc"
 
-void dump(const char* path, const void* src, int len) {
-    if (auto* f = fopen(path, "wb")) {
-        fwrite(src, 1, len, f);
-        fclose(f);
-    }
+#include <cstdio>
+
+void print(const string_view& format, ...) {
+    va_list args;
+
+    va_start(args, format);
+    vfprintf(stdout, format.data(), args);
+    va_end(args);
 }
 
-static bool jumpTableCallback(uc_engine* uc, uc_mem_type type, uint64_t address, int size, int64_t value, void* user) {
-    printf("0x%08X: 0x%08X\n", address, value);
-    return false;
+void print_string(string& string, const string_view& format, ...) {
+    char local[512]{};
+
+    va_list args;
+
+    va_start(args, format);
+    vsnprintf(local, sizeof(local), format.data(), args);
+    va_end(args);
+
+    string += local;
 }
+
+template<typename T>
+constexpr auto hostToTarget(const T* ptr) {
+    auto addr = uintptr_t(ptr);
+    addr -= uintptr_t(process.data());
+    return addr - imageBase;
+}
+
+template<typename T>
+constexpr auto targetToHost(uint32_t addr) {
+    auto* ptr = process.data() + addr - imageBase;
+    return (T*)ptr;
+}
+
+struct Interop {
+    Interop(uc_engine* _uc) : uc(_uc) { }
+
+    auto read(int index) const {
+        uint32_t v;
+        uc_reg_read(uc, UC_ARM_REG_R0 + index, &v);
+        return v;
+    }
+
+    auto write(int index, uint32_t v) {
+        uc_reg_write(uc, UC_ARM_REG_R0 + index, &v);
+    }
+
+    auto readLR()            const { uint32_t v; uc_reg_read(uc, UC_ARM_REG_LR, &v); return v; }
+    auto readSP()            const { uint32_t v; uc_reg_read(uc, UC_ARM_REG_SP, &v); return v; }
+    auto readPC()            const { uint32_t v; uc_reg_read(uc, UC_ARM_REG_PC, &v); return v; }
+    auto readIP()            const { uint32_t v; uc_reg_read(uc, UC_ARM_REG_IP, &v); return v; }
+
+    auto writeLR(uint32_t v)       { uc_reg_write(uc, UC_ARM_REG_LR, &v); }
+    auto writeSP(uint32_t v)       { uc_reg_write(uc, UC_ARM_REG_SP, &v); }
+    auto writePC(uint32_t v)       { uc_reg_write(uc, UC_ARM_REG_PC, &v); }
+    auto writeIP(uint32_t v)       { uc_reg_write(uc, UC_ARM_REG_IP, &v); }
+
+private:
+    uint32_t registers[4]{};
+    uc_engine* uc;
+};
 
 static bool badMemAccessCallback(uc_engine* uc, uc_mem_type type, uint64_t address, int size, int64_t value, void*) {
     switch (type) {
-        case uc_mem_type::UC_MEM_READ_UNMAPPED: {
-            printf("0x%08X: UNMAPPED READ!!\n", address);
-        } break;
-
         case uc_mem_type::UC_MEM_FETCH_PROT: {
-            const auto  index = (address - jumpTableAddress) / 4;
-            const auto& p     = jumpMap[index];
+            const auto  index   = (address - jumpTableRange.getStart()) / 4;
+            const auto& p       = jumpMap[index];
 
-            uint32_t r[13]{};
+            Interop irop{uc};
 
-            for (int i = 0; i <= 12; i++) {
-                uc_reg_read(uc, UC_ARM_REG_R0 + i, &r[i]);
-                printf("r[%d]: 0x%08X\n", i, r[i]);
+            printf("0x%08llX: [%s][%s]\n", address, p.module.c_str(), p.func.c_str());
+
+            using namespace coredll;
+            switch (StringHash{p.func}) {
+                case StringHash{"GlobalMemoryStatus"}: {
+                    auto* ms = targetToHost<MEMORYSTATUS>(irop.read(0));
+                    ms->dwMemoryLoad     = 0;
+                    ms->dwTotalPhys      = specs::ram;
+                    ms->dwAvailPhys      = memoryRange.length();
+                    ms->dwTotalPageFile  = 128 * 1024 * 1024;
+                    ms->dwAvailPageFile  = 128 * 1024 * 1024;
+                    ms->dwTotalVirtual   = 100 * 1024 * 1024;
+                    ms->dwAvailVirtual   = memoryRange.length();
+                } break;
+
+                case StringHash{"malloc"}: {
+                    irop.write(0, allocator_alloc(irop.read(0)));
+                } break;
+
+                default: return false;
             }
 
-            auto arg0 = process.data() + r[0] - imageBase;
-
-            GlobalMemoryStatus((MEMORYSTATUS*)arg0);
-            printf("API CALL!!! [%s][%s]\n", p.module.c_str(), p.func.c_str());
-
-            // br lr
-            uint32_t addr;
-            uc_reg_read(uc,  UC_ARM_REG_LR, &addr);
-            uc_reg_write(uc, UC_ARM_REG_PC, &addr);
-
+            // jump back
+            irop.writePC(irop.readLR());
             return true;
         } break;
 
         default: {
-            printf("0x%08X: UNHANDLED ERROR (%d)!!\n", address, type);
+            printf("0x%08llX: UNHANDLED ERROR (%d)!!\n", address, type);
         } break;
     }
 
@@ -81,29 +146,15 @@ static bool badMemAccessCallback(uc_engine* uc, uc_mem_type type, uint64_t addre
 }
 
 void traceCallback(uc_engine* uc, uint64_t address, uint32_t size, void* user_data) {
-    uint8_t code[32]{};
-    cs_insn* insn = nullptr;
+    uint8_t code[4]{};
 
     uc_mem_read(uc, address, code, size);
-
-    printf("0x%08X: ", address);
-
-    for (int i = 0; i < 4; i++) {
-        if (i < size) printf("%02X", code[i]); else printf("  ");
-    }
-
-    if (const auto n = cs_disasm(cs, code, size, address, 1, &insn)) {
-        printf("\t%s %s\n", insn[0].mnemonic, insn[0].op_str);
-        cs_free(insn, n);
-        return;
-    }
-
-    printf("\tUnknown???\n");
+    disassemble_single(code, size, address);
 }
 
 int main(int argc, const char** argv) {
     const auto path = argc > 1 ? argv[1]
-                               : PREEM_HLE_ROM_PATH "/quake/Quake.exe";
+                               : PREEM_HLE_ROM_PATH "/test/main.exe";
 
     auto file = file_load(path);
     check(file, "failed to open file");
@@ -140,7 +191,9 @@ int main(int argc, const char** argv) {
         memset(dst, 0, s.Misc.VirtualSize);
 
         if (s.SizeOfRawData > 0) {
-            check(srcOffset + s.SizeOfRawData < file->size(), "source is out of bounds");
+            check(srcOffset + s.SizeOfRawData <= file->size(),
+                  "source is out of bounds. { 0x%08X - 0x%08X } is out of bounds of %08X",
+                  s.PointerToRawData, s.PointerToRawData + s.SizeOfRawData, file->size());
             memcpy(dst, src, s.SizeOfRawData);
         }
     }
@@ -168,9 +221,9 @@ int main(int argc, const char** argv) {
             }();
 
             jumpMap.push_back({ moduleName, symbolName, nullptr });
-            const auto addr = jumpTableAddress + (jumpTable.size() * 4);
+            const auto addr = jumpTableRange.getStart() + (jumpTable.size() * 4);
 
-            //printf("[%s][%s]: 0x%08X\n", moduleName, symbolName, addr);
+            printf("[%s][%s]: 0x%08lX\n", moduleName, symbolName, addr);
             jumpTable.push_back(addr);
             thunk->u1.Function = addr;
 
@@ -180,18 +233,13 @@ int main(int argc, const char** argv) {
         desc++;
     }
 
-    {
-        auto r = cs_open(cs_arch::CS_ARCH_ARM, cs_mode::CS_MODE_ARM, &cs);
-        check(r == CS_ERR_OK, "failed to init capstone. %s\n", cs_strerror(r));
-    }
-
     auto r = uc_open(uc_arch::UC_ARCH_ARM, uc_mode::UC_MODE_ARM, &uc);
     check(r == UC_ERR_OK, "failed to init unicorn. %s", uc_strerror(r));
 
     r = uc_mem_map_ptr(uc, imageBase, process.size(), UC_PROT_ALL, base);
     check(r == UC_ERR_OK, "failed to map process memory. %s", uc_strerror(r));
 
-    r = uc_mem_map_ptr(uc, jumpTableAddress, jumpTableSize, UC_PROT_READ, jumpTable.data());
+    r = uc_mem_map_ptr(uc, jumpTableRange.getStart(), jumpTableRange.length(), UC_PROT_READ, jumpTable.data());
     check(r == UC_ERR_OK, "failed to map jump table. %s", uc_strerror(r));
 
     // TODO:
@@ -212,7 +260,7 @@ int main(int argc, const char** argv) {
     uc_reg_write(uc, UC_ARM_REG_R13, &value);
     uc_reg_write(uc, UC_ARM_REG_R14, &value);
 
-    const auto sp = process.size() - mb(2);
+    const auto sp = stackRange.getEnd();    // assuming the stack grows down..
     auto       pc = imageBase + entryPoint;
 
     uc_reg_write(uc, UC_ARM_REG_SP,  &sp);
@@ -230,21 +278,29 @@ int main(int argc, const char** argv) {
                     0, process.size());
     check(r == UC_ERR_OK, "bad hook install: %s\n", uc_strerror(r));
 
-    hook = 0;
-    r = uc_hook_add(uc, &hook, UC_HOOK_MEM_READ,
-                    cast<void*>(jumpTableCallback), nullptr,
-                    jumpTableAddress, jumpTableAddress + jumpTableSize);
-    check(r == UC_ERR_OK, "failed to hook jump table: %s\n", uc_strerror(r));
-
     printf("ImageBase:  0x%08X\n", imageBase);
     printf("EntryPoint: 0x%08X\n", pc);
 
-    r = uc_emu_start(uc, pc, pc + process.size(), 0, 0);
-    if (r != UC_ERR_OK) {
+    allocator_init(memoryRange.getStart(), memoryRange.getEnd());
+
+    if ((r = uc_emu_start(uc, pc, pc + process.size(), 0, 0)); r != UC_ERR_OK) {
+        const Interop inter{uc};
+
+        printf("r[0]  = 0x%08X\t", inter.read(0));  printf("r[1]  = 0x%08X\n", inter.read(1));
+        printf("r[2]  = 0x%08X\t", inter.read(2));  printf("r[3]  = 0x%08X\n", inter.read(3));
+        printf("r[4]  = 0x%08X\t", inter.read(4));  printf("r[5]  = 0x%08X\n", inter.read(5));
+        printf("r[6]  = 0x%08X\t", inter.read(6));  printf("r[7]  = 0x%08X\n", inter.read(7));
+        printf("r[8]  = 0x%08X\t", inter.read(8));  printf("r[9]  = 0x%08X\n", inter.read(9));
+        printf("r[10] = 0x%08X\t", inter.read(10)); printf("r[11] = 0x%08X\n", inter.read(11));
+        printf("r[12] = 0x%08X\t", inter.read(12)); printf("r[13] = 0x%08X\n", inter.read(13));
+        printf("r[14] = 0x%08X\t", inter.read(14)); printf("r[15] = 0x%08X\n", inter.read(15));
+        printf("sp    = 0x%08X\t", inter.readSP()); printf("pc    = 0x%08X\n", inter.readPC());
+        printf("lr    = 0x%08X\t", inter.readLR()); printf("ip    = 0x%08X\n", inter.readIP());
+
         printf("%s\n", uc_strerror(r));
     }
 
-    cs_close(&cs);
+
     uc_close(uc);
 
     return 0;

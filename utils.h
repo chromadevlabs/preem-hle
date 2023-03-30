@@ -1,15 +1,15 @@
 #pragma once
 
-#include <cstdio>       // printf
 #include <optional>     // std::optional, std::make_optional
 #include <cstdint>      // uint32_t etc
 #include <string_view>  // std::string_view
+#include <string>       // std::string
 #include <vector>
 
 using std::optional;
 using std::string_view;
+using std::string;
 using std::vector;
-using std::byte;
 using std::make_optional;
 
 #if WIN32
@@ -20,9 +20,11 @@ using std::make_optional;
 
 #define stringify(value)    # value
 #define concat(a, b)        a # b
-#define check(expr, ...)    if (!bool(expr)) { printf("ASSERT - %s[%d]: ", __FILE__, __LINE__);    \
-                                               printf(__VA_ARGS__); printf("\n"); fflush(stdout);  \
-                                               BREAK(); }
+#define check(expr, ...)    if (!bool(expr)) { print("ASSERT - %s[%d]: ", __FILE__, __LINE__);    \
+                                               print(__VA_ARGS__); print("\n"); BREAK(); }
+
+void print(const string_view& format, ...);
+void print_string(string& string, const string_view& format, ...);
 
 template<typename RT, typename PT>
 constexpr RT cast(PT pt) { return (RT)pt; }
@@ -40,6 +42,7 @@ constexpr T align(T value, T alignment) {
 
 struct StringHash {
     constexpr StringHash() = default;
+    constexpr StringHash(const string_view& view) : StringHash(view.data()) {}
     constexpr StringHash(const char* string) : value(hash(string)) {}
 
     constexpr auto     empty() const { return value == 0; }
@@ -61,6 +64,10 @@ struct Range {
     constexpr auto   length()        const { return end - begin; }
     constexpr auto contains(T value) const { return value >= begin && value < end; }
     constexpr auto    clamp(T value) const { return value <= begin ? begin : value >= end ? end : value; }
+
+    constexpr auto getStart() const { return begin; }
+    constexpr auto   getEnd() const { return end; }
+
 private:
     T begin, end;
 };
@@ -95,7 +102,6 @@ constexpr auto make_view(const ContainerT& cont, size_t offset = 0, size_t len =
     len = len != 0 ? len : std::size(cont);
     return make_view(std::cbegin(cont) + offset, std::cbegin(cont) + offset + len);
 }
-
 
 optional<vector<uint8_t>> file_load(const string_view& path);
 bool file_save(const string_view& path, const vector<uint8_t>& data);
