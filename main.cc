@@ -4,7 +4,7 @@
 #include "pe.h"
 #include "modules.h"
 #include "utils.h"
-#include "allocator.h"
+#include "disassembler.h"
 
 namespace specs {
     const auto ram = mb(128);
@@ -28,10 +28,12 @@ struct JumpEntry {
 0x00000000 -> JUMP_TABLE_START <0x00000000 - 0x00001000>
    ------------------------------------*/
 
+// global
+uc_engine* uc = nullptr;
+
 static std::vector<uint8_t>   process;
 static std::vector<uint32_t>  jumpTable;
 static std::vector<JumpEntry> jumpMap;
-static uc_engine*             uc               = nullptr;
 static uint32_t               imageBase        = 0;
 static const Range<uint32_t>  stackRange       = { 0x07E00000, 0x08000000 };
 static const Range<uint32_t>  memoryRange      = { 0x00A00000, 0x07DFFFFF };
@@ -74,33 +76,27 @@ constexpr auto targetToHost(uint32_t addr) {
     return (T*)ptr;
 }
 
-struct Interop {
-    Interop(uc_engine* _uc) : uc(_uc) { }
-
-    auto read(int index) const {
+namespace virt {
+    auto reg_read_r(uc_engine* uc, int index) {
         uint32_t v;
         uc_reg_read(uc, UC_ARM_REG_R0 + index, &v);
         return v;
     }
 
-    auto write(int index, uint32_t v) {
+    auto reg_write_r(uc_engine* uc, int index, uint32_t v) {
         uc_reg_write(uc, UC_ARM_REG_R0 + index, &v);
     }
 
-    auto readLR()            const { uint32_t v; uc_reg_read(uc, UC_ARM_REG_LR, &v); return v; }
-    auto readSP()            const { uint32_t v; uc_reg_read(uc, UC_ARM_REG_SP, &v); return v; }
-    auto readPC()            const { uint32_t v; uc_reg_read(uc, UC_ARM_REG_PC, &v); return v; }
-    auto readIP()            const { uint32_t v; uc_reg_read(uc, UC_ARM_REG_IP, &v); return v; }
+    auto reg_read_lr(uc_engine* uc)              { uint32_t v; uc_reg_read(uc, UC_ARM_REG_LR, &v); return v; }
+    auto reg_read_sp(uc_engine* uc)              { uint32_t v; uc_reg_read(uc, UC_ARM_REG_SP, &v); return v; }
+    auto reg_read_pc(uc_engine* uc)              { uint32_t v; uc_reg_read(uc, UC_ARM_REG_PC, &v); return v; }
+    auto reg_read_ip(uc_engine* uc)              { uint32_t v; uc_reg_read(uc, UC_ARM_REG_IP, &v); return v; }
 
-    auto writeLR(uint32_t v)       { uc_reg_write(uc, UC_ARM_REG_LR, &v); }
-    auto writeSP(uint32_t v)       { uc_reg_write(uc, UC_ARM_REG_SP, &v); }
-    auto writePC(uint32_t v)       { uc_reg_write(uc, UC_ARM_REG_PC, &v); }
-    auto writeIP(uint32_t v)       { uc_reg_write(uc, UC_ARM_REG_IP, &v); }
-
-private:
-    uint32_t registers[4]{};
-    uc_engine* uc;
-};
+    auto reg_write_lr(uc_engine* uc, uint32_t v) { uc_reg_write(uc, UC_ARM_REG_LR, &v); }
+    auto reg_write_sp(uc_engine* uc, uint32_t v) { uc_reg_write(uc, UC_ARM_REG_SP, &v); }
+    auto reg_write_pc(uc_engine* uc, uint32_t v) { uc_reg_write(uc, UC_ARM_REG_PC, &v); }
+    auto reg_write_ip(uc_engine* uc, uint32_t v) { uc_reg_write(uc, UC_ARM_REG_IP, &v); }
+}
 
 static bool badMemAccessCallback(uc_engine* uc, uc_mem_type type, uint64_t address, int size, int64_t value, void*) {
     switch (type) {
@@ -108,32 +104,24 @@ static bool badMemAccessCallback(uc_engine* uc, uc_mem_type type, uint64_t addre
             const auto  index   = (address - jumpTableRange.getStart()) / 4;
             const auto& p       = jumpMap[index];
 
-            Interop irop{uc};
-
             printf("0x%08llX: [%s][%s]\n", address, p.module.c_str(), p.func.c_str());
 
             using namespace coredll;
             switch (StringHash{p.func}) {
                 case StringHash{"GlobalMemoryStatus"}: {
-                    auto* ms = targetToHost<MEMORYSTATUS>(irop.read(0));
-                    ms->dwMemoryLoad     = 0;
-                    ms->dwTotalPhys      = specs::ram;
-                    ms->dwAvailPhys      = memoryRange.length();
-                    ms->dwTotalPageFile  = 128 * 1024 * 1024;
-                    ms->dwAvailPageFile  = 128 * 1024 * 1024;
-                    ms->dwTotalVirtual   = 100 * 1024 * 1024;
-                    ms->dwAvailVirtual   = memoryRange.length();
+                    __debugbreak();
                 } break;
 
                 case StringHash{"malloc"}: {
-                    irop.write(0, allocator_alloc(irop.read(0)));
+                    __debugbreak();
                 } break;
 
                 default: return false;
             }
 
             // jump back
-            irop.writePC(irop.readLR());
+            const auto lr = virt::reg_read_lr(uc);
+            virt::reg_write_pc(uc, lr);
             return true;
         } break;
 
@@ -149,7 +137,7 @@ void traceCallback(uc_engine* uc, uint64_t address, uint32_t size, void* user_da
     uint8_t code[4]{};
 
     uc_mem_read(uc, address, code, size);
-    disassemble_single(code, size, address);
+    //disassemble_single(code, size, address);
 }
 
 int main(int argc, const char** argv) {
@@ -163,7 +151,7 @@ int main(int argc, const char** argv) {
     const auto* nt  = cast<const pe::NT_HEADER*>(file->data() + dos->e_lfanew);
 
     // Gizmondo is a ARM thumb device running Window CE.
-    check (nt->FileHeader.Machine == 0x01c2, "expected ARM THUMB.. got (0x%04X)", nt->FileHeader.Machine);
+    check(nt->FileHeader.Machine == 0x01c2, "expected ARM THUMB.. got (0x%04X)", nt->FileHeader.Machine);
 
     const auto sections = [=] {
         const auto first = cast<pe::SECTION_HEADER*>(cast<uintptr_t>(&nt->OptionalHeader) + nt->FileHeader.SizeOfOptionalHeader);

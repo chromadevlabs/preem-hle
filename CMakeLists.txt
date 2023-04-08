@@ -18,7 +18,8 @@ add_executable(${PROJECT_NAME}
     modules.cc
     utils.cc
     allocator.cc
-)
+    disassembler.cc
+ "process.h")
 
 target_compile_definitions(${PROJECT_NAME}
     PRIVATE

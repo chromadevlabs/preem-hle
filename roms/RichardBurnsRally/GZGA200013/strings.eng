@@ -1,0 +1,879 @@
+;
+;FE_TXT_OK
+;
+Ok
+;
+;FE_TXT_ON
+;
+On
+;
+;FE_TXT_OFF
+;
+Off
+;
+;FE_TXT_YES
+;
+Yes
+;
+;FE_TXT_NO
+;
+No
+;
+;FE_TXT_DEMO_PRESS_ANY_BUTTON
+;
+D E M O, press any button to exit.
+;
+;FE_TXT_PAUSEMENU_CONTINUE
+;
+Continue
+;
+;FE_TXT_PAUSEMENU_OPTIONS
+;
+Options
+;
+;FE_TXT_PAUSEMENU_END_GAME
+;
+End Game
+;
+;FE_TXT_PAUSEMENU_RESTART
+;
+Restart
+;
+;FE_TXT_PAUSEMENU_REPLAY
+;
+Replay
+;
+;FE_TXT_ENDGAMEMENU_TITLE
+;
+End Race ?
+;
+;FE_TXT_AUDIOMENU_AMBIENT
+;
+Ambient Volume
+;
+;FE_TXT_AUDIOMENU_ENGINE
+;
+Engine Volume
+;
+;FE_TXT_AUDIOMENU_CODRIVER
+;
+Co-Driver Volume
+;
+;FE_TXT_AUDIOMENU_EFFECTS
+;
+Effects Volume
+;
+;FE_TXT_AUDIOMENU_MUSIC
+;
+Music Volume
+;
+;FE_TXT_AUDIOMENU_RESET_TO_DEFAULTS
+;
+Reset to defaults
+;
+;FE_TXT_DIFFICULTY_MODE
+;
+Difficulty Mode
+;
+;FE_TXT_DIFF_EASY
+;
+Easy
+;
+;FE_TXT_DIFF_MEDIUM
+;
+Medium
+;
+;FE_TXT_DIFF_HARD
+;
+Hard
+;
+;FE_TXT_HIGHSCORE_TIME
+;
+Time
+;
+;FE_TXT_ARCADE_LOCKED
+;
+Locked
+;
+;FE_TXT_LOADING_STAGEXOFY
+;
+Stage %d of %d
+;
+;FE_TXT_GAMEOVER
+;
+GAME OVER
+;
+;FE_TXT_FRONTEND_START_TITLE
+;
+Main Menu
+;
+;FE_TXT_FRONTEND_START_OPTIONS
+;
+Options
+;
+;FE_TXT_FRONTEND_MAIN_TITLE
+;
+Mode Selection
+;
+;FE_TXT_FRONTEND_MAIN_ARCADE
+;
+Arcade
+;
+;FE_TXT_FRONTEND_QUICK_SECTION
+;
+Quick Rally
+;
+;FE_TXT_FRONTEND_CAR_TITLE
+;
+Car selection
+;
+;FE_TXT_FRONTEND_STAGE_TITLE
+;
+Select stage
+;
+;FE_TXT_FRONTEND_NEWGAME
+;
+New Profile
+;
+;FE_TXT_FRONTEND_PROFILE_NAME
+;
+Name
+;
+;FE_TXT_FRONTEND_WARNING_RESET
+;
+Warning! All game progress and highscores will be lost!\n\nReset Game Progress?
+;
+;FE_TXT_FRONTEND_OPTION_AUDIO
+;
+Audio
+;
+;FE_TXT_FRONTEND_OPTION_RESETGAME
+;
+Reset Game Progress
+;
+;FE_TXT_FRONTEND_OPTION_CREDITS
+;
+Credits
+;
+;FE_TXT_FRONTEND_OPTION_KEY_THROTTLE
+;
+Throttle
+;
+;FE_TXT_FRONTEND_OPTION_KEY_BRAKE
+;
+Brake
+;
+;FE_TXT_FRONTEND_OPTION_KEY_SHIFTUP
+;
+Gear Up
+;
+;FE_TXT_FRONTEND_OPTION_KEY_SHIFTDOWN
+;
+Gear Down
+;
+;FE_TXT_FRONTEND_OPTION_KEY_HANDBRAKE
+;
+Handbrake
+;
+;FE_TXT_FRONTEND_OPTION_KEY_CAMERA
+;
+Change View
+;
+;FE_TXT_FRONTEND_BAR_CHANGE
+;
+Change
+;
+;FE_TXT_FRONTEND_BAR_BACK
+;
+Back
+;
+;FE_TXT_FRONTEND_BAR_SELECT
+;
+Select
+;
+;FE_TXT_FRONTEND_BAR_STARTGAME
+;
+Start game
+;
+;FE_TXT_FRONTEND_CARINFO_CAR0_LINE2
+;
+Citroen Xsara
+;
+;FE_TXT_FRONTEND_CARINFO_CAR0_LINE4
+;
+300 at 5000 rpm
+;
+;FE_TXT_FRONTEND_CARINFO_CAR0_LINE6
+;
+530 Nm at 4000 rpm
+;
+;FE_TXT_FRONTEND_CARINFO_CAR0_LINE8
+;
+1998 cc
+;
+;FE_TXT_FRONTEND_CARINFO_CAR0_LINE10
+;
+Michelin
+;
+;FE_TXT_FRONTEND_CARINFO_CAR0_LINE11
+;
+1230 Kg
+;
+;FE_TXT_FRONTEND_CARINFO_CAR0_LINE13
+;
+6 gears, 4WD
+;
+;FE_TXT_FRONTEND_CARINFO_CAR1_LINE2
+;
+Hyundai Accent
+;
+;FE_TXT_FRONTEND_CARINFO_CAR1_LINE4
+;
+300 at 5300 rpm
+;
+;FE_TXT_FRONTEND_CARINFO_CAR1_LINE6
+;
+520 Nm at 3500 rpm
+;
+;FE_TXT_FRONTEND_CARINFO_CAR1_LINE8
+;
+2000 cc
+;
+;FE_TXT_FRONTEND_CARINFO_CAR1_LINE10
+;
+Michelin
+;
+;FE_TXT_FRONTEND_CARINFO_CAR1_LINE11
+;
+1230 Kg
+;
+;FE_TXT_FRONTEND_CARINFO_CAR1_LINE13
+;
+6 gears, 4WD
+;
+;FE_TXT_FRONTEND_CARINFO_CAR2_LINE2
+;
+Mitsubishi Lancer Evo VII
+;
+;FE_TXT_FRONTEND_CARINFO_CAR2_LINE4
+;
+300 at 5500 rpm
+;
+;FE_TXT_FRONTEND_CARINFO_CAR2_LINE6
+;
+550 Nm at 3500 rpm
+;
+;FE_TXT_FRONTEND_CARINFO_CAR2_LINE8
+;
+1996 cc
+;
+;FE_TXT_FRONTEND_CARINFO_CAR2_LINE10
+;
+Michelin
+;
+;FE_TXT_FRONTEND_CARINFO_CAR2_LINE11
+;
+1230 Kg
+;
+;FE_TXT_FRONTEND_CARINFO_CAR2_LINE13
+;
+6 gears, 4WD
+;
+;FE_TXT_FRONTEND_CARINFO_CAR3_LINE2
+;
+MG ZR Super 1600
+;
+;FE_TXT_FRONTEND_CARINFO_CAR3_LINE4
+;
+215 at 8450 rpm
+;
+;FE_TXT_FRONTEND_CARINFO_CAR3_LINE6
+;
+190 Nm at 7800 rpm
+;
+;FE_TXT_FRONTEND_CARINFO_CAR3_LINE8
+;
+1588 cc
+;
+;FE_TXT_FRONTEND_CARINFO_CAR3_LINE10
+;
+Michelin
+;
+;FE_TXT_FRONTEND_CARINFO_CAR3_LINE11
+;
+960 Kg
+;
+;FE_TXT_FRONTEND_CARINFO_CAR3_LINE13
+;
+6 gears, 2WD
+;
+;FE_TXT_FRONTEND_CARINFO_CAR4_LINE2
+;
+Peugeot 206
+;
+;FE_TXT_FRONTEND_CARINFO_CAR4_LINE4
+;
+300 at 5250 rpm
+;
+;FE_TXT_FRONTEND_CARINFO_CAR4_LINE6
+;
+540 Nm at 4000 rpm
+;
+;FE_TXT_FRONTEND_CARINFO_CAR4_LINE8
+;
+1998 cc
+;
+;FE_TXT_FRONTEND_CARINFO_CAR4_LINE10
+;
+Michelin
+;
+;FE_TXT_FRONTEND_CARINFO_CAR4_LINE11
+;
+1250 Kg
+;
+;FE_TXT_FRONTEND_CARINFO_CAR4_LINE13
+;
+5 gears, 4WD
+;
+;FE_TXT_FRONTEND_CARINFO_CAR5_LINE2
+;
+Subaru Impreza 2000
+;
+;FE_TXT_FRONTEND_CARINFO_CAR5_LINE4
+;
+280 at 6400 rpm
+;
+;FE_TXT_FRONTEND_CARINFO_CAR5_LINE6
+;
+380 Nm at 4000 rpm
+;
+;FE_TXT_FRONTEND_CARINFO_CAR5_LINE8
+;
+1994 cc
+;
+;FE_TXT_FRONTEND_CARINFO_CAR5_LINE10
+;
+Pirelli
+;
+;FE_TXT_FRONTEND_CARINFO_CAR5_LINE11
+;
+1230 Kg
+;
+;FE_TXT_FRONTEND_CARINFO_CAR5_LINE13
+;
+6 gears, 4WD
+;
+;FE_TXT_FRONTEND_CARINFO_CAR6_LINE2
+;
+Subaru Impreza 2003
+;
+;FE_TXT_FRONTEND_CARINFO_CAR6_LINE4
+;
+300 at 5500 rpm
+;
+;FE_TXT_FRONTEND_CARINFO_CAR6_LINE6
+;
+600 Nm at 4000 rpm
+;
+;FE_TXT_FRONTEND_CARINFO_CAR6_LINE8
+;
+1996 cc
+;
+;FE_TXT_FRONTEND_CARINFO_CAR6_LINE10
+;
+Pirelli
+;
+;FE_TXT_FRONTEND_CARINFO_CAR6_LINE11
+;
+1230 Kg
+;
+;FE_TXT_FRONTEND_CARINFO_CAR6_LINE13
+;
+6 gears, 4WD
+;
+;FE_TXT_FRONTEND_CARINFO_CAR7_LINE2
+;
+Toyota Corolla
+;
+;FE_TXT_FRONTEND_CARINFO_CAR7_LINE4
+;
+300 at 5250 rpm
+;
+;FE_TXT_FRONTEND_CARINFO_CAR7_LINE6
+;
+520 Nm at 4000 rpm
+;
+;FE_TXT_FRONTEND_CARINFO_CAR7_LINE8
+;
+2000 cc
+;
+;FE_TXT_FRONTEND_CARINFO_CAR7_LINE10
+;
+Michelin
+;
+;FE_TXT_FRONTEND_CARINFO_CAR7_LINE11
+;
+1080 Kg
+;
+;FE_TXT_FRONTEND_CARINFO_CAR7_LINE13
+;
+6 gears, 4WD
+;
+;FE_TXT_FRONTEND_CARSETUP_STEERING
+;
+Steering
+;
+;FE_TXT_OVERLAY_WRONG_WAY
+;
+WRONG WAY
+;
+;FE_TXT_DELETE
+;
+Delete
+;
+;FE_TXT_QUICKRACE_UNLOCKED
+;
+%s IS UNLOCKED
+;
+;FE_TXT_WELLDONE
+;
+WELL DONE!
+;
+;FE_TXT_LANGUAGENAME
+;
+English
+;
+;FE_TXT_SELECT_LANGUAGE
+;
+Select language
+;
+;FE_TXT_CANCEL
+;
+Cancel
+;
+;FE_TXT_DEL
+;
+Del
+;
+;FE_TXT_ENTER_NAME
+;
+Enter name
+;
+;FE_TXT_SELECT_CAR
+;
+Select car
+;
+;FE_TXT_PLAYER1_SETUP
+;
+Player 1 setup
+;
+;FE_TXT_PLAYER2_SETUP
+;
+Player 2 setup
+;
+;FE_TXT_PLAYER3_SETUP
+;
+Player 3 setup
+;
+;FE_TXT_PLAYER4_SETUP
+;
+Player 4 setup
+;
+;FE_TXT_FRONTEND_RESET_AUDIO
+;
+Reset Audio?
+;
+;FE_TXT_FRONTEND_STAGE_LOCATION
+;
+Location
+;
+;FE_TXT_FRONTEND_STAGE_BRITAIN
+;
+The Lakes, Britain.
+;
+;FE_TXT_FRONTEND_STAGE_FRANCE
+;
+Brittany, France.
+;
+;FE_TXT_FRONTEND_STAGE_ARCTIC
+;
+Jokkmokk, N.Sweden.
+;
+;FE_TXT_FRONTEND_STAGE_JAPANESE
+;
+Riviera, Spain.
+;
+;FE_TXT_FRONTEND_STAGE_USA
+;
+Arizona, USA.
+;
+;FE_TXT_FRONTEND_STAGE_BRITISH1
+;
+British 1
+;
+;FE_TXT_FRONTEND_STAGE_BRITISH2
+;
+British 2
+;
+;FE_TXT_FRONTEND_STAGE_FRENCH1
+;
+French 1
+;
+;FE_TXT_FRONTEND_STAGE_FRENCH2
+;
+French 2
+;
+;FE_TXT_FRONTEND_STAGE_ARCTIC1
+;
+N.Sweden 1
+;
+;FE_TXT_FRONTEND_STAGE_ARCTIC2
+;
+N.Sweden 2
+;
+;FE_TXT_FRONTEND_STAGE_JAPAN1
+;
+Spanish 1
+;
+;FE_TXT_FRONTEND_STAGE_JAPAN2
+;
+Spanish 2
+;
+;FE_TXT_FRONTEND_STAGE_USA1
+;
+USA 1
+;
+;FE_TXT_FRONTEND_STAGE_USA2
+;
+USA 2
+;
+;FE_TXT_FRONTEND_LOADING_BRITISH1
+;
+Loading: Greenwood Quarry
+;
+;FE_TXT_FRONTEND_LOADING_BRITISH2
+;
+Loading: Stony Shoreline
+;
+;FE_TXT_FRONTEND_LOADING_FRENCH1
+;
+Loading: Vues Côtières
+;
+;FE_TXT_FRONTEND_LOADING_FRENCH2
+;
+Loading: Avant D'Océan
+;
+;FE_TXT_FRONTEND_LOADING_ARCTIC1
+;
+Loading: Snö Tyna bort
+;
+;FE_TXT_FRONTEND_LOADING_ARCTIC2
+;
+Loading: Djupfryst Driva
+;
+;FE_TXT_FRONTEND_LOADING_JAPAN1
+;
+Loading: Cortador de madera
+;
+;FE_TXT_FRONTEND_LOADING_JAPAN2
+;
+Loading: Cerdo de la verruga
+;
+;FE_TXT_FRONTEND_LOADING_USA1
+;
+Loading: Rocky Road
+;
+;FE_TXT_FRONTEND_LOADING_USA2
+;
+Loading: Cactus Causeway
+;
+;FE_TXT_FRONTEND_CARINFO_SPECS1
+;
+Technical Specifications
+;
+;FE_TXT_FRONTEND_CARINFO_SPECS2
+;
+Model:
+;
+;FE_TXT_FRONTEND_CARINFO_SPECS3
+;
+Horsepower:
+;
+;FE_TXT_FRONTEND_CARINFO_SPECS4
+;
+Torque:
+;
+;FE_TXT_FRONTEND_CARINFO_SPECS5
+;
+Engine:
+;
+;FE_TXT_FRONTEND_CARINFO_SPECS6
+;
+Tyres:
+;
+;FE_TXT_FRONTEND_CARINFO_SPECS7
+;
+Weight:
+;
+;FE_TXT_FRONTEND_CARINFO_SPECS8
+;
+Transmission:
+;
+;FE_TXT_FRONTEND_WARNING_QUITGAME
+;
+Are you sure you wish to exit?
+;
+;FE_TXT_HIGHSCORE_BEST
+;
+Best
+;
+;FE_TXT_HIGHSCORE_SPLIT
+;
+Split
+;
+;FE_TXT_SD_REMOVED
+;
+The SD Card has been removed. Please replace it or press STOP to quit to the homepage.
+;
+;FE_TXT_SD_INCORRECT
+;
+The incorrect SD card has been inserted, please reinsert the correct SD card or press the Stop Button to quit the game and return to the Home page.
+;
+;FE_TXT_OVERLAY_ARCADE_EXTENDEDTIME
+;
+Extended Time
+;
+;FE_TXT_PROFILE_LOAD
+;
+Load
+;
+;FE_TXT_PROFILE_CONFIRMNEW
+;
+Are you sure you want to create a new profile? Any unsaved changed to the current profile will be lost.
+;
+;FE_TXT_PROFILE_SAMENAME
+;
+A profile with that name already exists. If you continue it will be overwritten. Continue?
+;
+;FE_TXT_PROFILE_CONFIRMSAVE
+;
+Are you sure you want to save?
+;
+;FE_TXT_PROFILE_SAVED
+;
+Save Successful.
+;
+;FE_TXT_PROFILE_CONFIRMLOAD
+;
+Are you sure you want to load the profile? Any unsaved changes to the current profile will be lost.
+;
+;FE_TXT_PROFILE_LOADED
+;
+Profile successfully loaded!
+;
+;FE_TXT_PROFILE_TITLE
+;
+Profiles
+;
+;FE_TXT_PROFILE_MENU
+;
+Driver Profile
+;
+;FE_TXT_PROFILE_CREATE
+;
+Create
+;
+;FE_TXT_PROFILE_CORRUPT
+;
+All saved profiles are damaged. Do you wish to overwrite them? All profiles will be lost.
+;
+;FE_TXT_PROFILE_FULL
+;
+You have reached the maximum number of saved profiles. To create a new profile please delete one or more existing profiles.
+;
+;FE_TXT_PROFILE_CONFIRMDEL
+;
+Are you sure you want to delete the profile?
+;
+;FE_TXT_PROFILE_BADLOAD
+;
+Unable to load profiles. Do you wish to continue without saving?
+;
+;FE_TXT_PROFILE_BADCREATE
+;
+Unable to create profiles. Do you wish to continue without saving?
+;
+;FE_TXT_PROFILE_BADPROFLOAD
+;
+Unable to load profile.
+;
+;FE_TXT_PROFILE_BADPROFSAVE
+;
+Unable to save profile.
+;
+;FE_TXT_PROFILE_NOSPACE
+;
+There is insufficient space on your Gizmondo to create the profiles for this game, in order to save your GT Disk must have 10KB free. Do you wish to continue without saving?
+;
+;FE_TXT_SELECT_DIFFICULTY
+;
+Select difficulty
+;
+;FE_TXT_VIEWRESULTS_QUIT
+;
+Are you sure you want to exit to the menu?\nAll progress will be lost.
+;
+;FE_TXT_VIEWRESULTS_QUIT2
+;
+Are you sure you want to exit to the menu?
+;
+;FE_TXT_VIEWRESULTS_RESTART
+;
+Are you sure you want to restart the stage?\nAll progress will be lost.
+;
+;FE_TXT_VIEWRESULTS_TOTAL
+;
+Total
+;
+;FE_TXT_VIEWRESULTS_RECORD
+;
+Stage Record
+;
+;FE_TXT_VIEWRESULTS_PERSONAL
+;
+Personal Best
+;
+;FE_TXT_VIEWRESULTS_REMAINING
+;
+Time Remaining
+;
+;FE_TXT_VIEWRESULTS_ARCADE
+;
+Arcade Results
+;
+;FE_TXT_VIEWRESULTS_QUICK
+;
+Quick Rally Results
+;
+;FE_TXT_VIEWRESULTS_UNLOCK
+;
+Well done! You have unlocked:
+;
+;FE_TXT_VIEWRESULTS_UNLOCK_ARCADE_EASY
+;
+Easy Arcade Mode
+;
+;FE_TXT_VIEWRESULTS_UNLOCK_ARCADE_MEDIUM
+;
+Medium Arcade Mode
+;
+;FE_TXT_VIEWRESULTS_UNLOCK_ARCADE_HARD
+;
+Hard Arcade Mode
+;
+;FE_TXT_VIEWRESULTS_COMPLETE
+;
+Well done! You have completed:
+;
+;FE_TXT_FRONTEND_VIEWRESULTS_BRITISH1
+;
+British 1, Greenwood Quarry
+;
+;FE_TXT_FRONTEND_VIEWRESULTS_BRITISH2
+;
+British 2, Stony Shoreline
+;
+;FE_TXT_FRONTEND_VIEWRESULTS_FRENCH1
+;
+French 1, Vues Côtières
+;
+;FE_TXT_FRONTEND_VIEWRESULTS_FRENCH2
+;
+French 2, Avant D'Océan
+;
+;FE_TXT_FRONTEND_VIEWRESULTS_ARCTIC1
+;
+N.Sweden 1, Snö Tyna bort
+;
+;FE_TXT_FRONTEND_VIEWRESULTS_ARCTIC2
+;
+N.Sweden 2, Djupfryst Driva
+;
+;FE_TXT_FRONTEND_VIEWRESULTS_JAPAN1
+;
+Spanish 1, Cortador de madera
+;
+;FE_TXT_FRONTEND_VIEWRESULTS_JAPAN2
+;
+Spanish 2, Cerdo de la verruga
+;
+;FE_TXT_FRONTEND_VIEWRESULTS_USA1
+;
+USA 1, Rocky Road
+;
+;FE_TXT_FRONTEND_VIEWRESULTS_USA2
+;
+USA 2, Rocky Road
+;
+;FE_TXT_PAUSEMENU_UNSTUCK
+;
+Call for help
+;
+;FE_TXT_PAUSEMENU_READSMS
+;
+Messaging
+;
+;FE_TXT_FRONTEND_GEAR_TITLE
+;
+Select transmission
+;
+;FE_TXT_FRONTEND_GEAR_AUTO
+;
+Automatic
+;
+;FE_TXT_FRONTEND_GEAR_MANUAL
+;
+Manual
+;
+;FE_TXT_OPTIONSMENU_CONTROLLER
+;
+Select controls
+;
+;FE_TXT_FRONTEND_CONTROLS_CONFIGA
+;
+Config A
+;
+;FE_TXT_FRONTEND_CONTROLS_CONFIGB
+;
+Config B
+;
+;FE_TXT_FRONTEND_CONTROLS_CONFIGC
+;
+Config C
+;
+;FE_TXT_PAUSEMENU_RESTART_DIALOG
+;
+Are you sure you want to restart the stage?\nAll progress will be lost.
+;
+;FE_TXT_PAUSEMENU_ENDGAME_DIALOG
+;
+Are you sure you want to retire from the stage?\nAll progress will be lost.
+;
+;FE_TXT_FRONTEND_WARNING_LOWBATT
+;
+Warning!\nLow battery. Please connect AC power or any unsaved changes to the current profile may be lost.
+;
+;FE_TXT_FRONTEND_WARNING_CRITBATT
+;
+Warning!\nCritical battery. Please connect AC power or profiles may be damaged.
+;
+;FE_TXT_FRONTEND_PIANO_VOLUME
+;
+Volume
+;
+;FE_TXT_FRONTEND_BRIGHTNESS_VOLUME
+;
+Brightness
+;
+; Always terminate with '$'   
+$

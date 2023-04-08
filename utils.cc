@@ -4,7 +4,7 @@
 
 #include "utils.h"
 
-using ptr          = std::unique_ptr<FILE, void(*)(FILE*)>;
+using ptr = std::unique_ptr<FILE, void(*)(FILE*)>;
 
 static void closer(FILE* f) { if (f) fclose(f);  };
 
