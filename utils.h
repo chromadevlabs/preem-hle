@@ -3,7 +3,6 @@
 #include <optional>     // std::optional, std::make_optional
 #include <cstdint>      // uint32_t etc
 #include <string_view>  // std::string_view
-#include <string>       // std::string
 #include <vector>
 
 using std::optional;
@@ -18,16 +17,10 @@ using std::make_optional;
  #define BREAK()             __builtin_trap()
 #endif
 
-#define stringify(value)    # value
-#define concat(a, b)        a # b
 #define check(expr, ...)    if (!bool(expr)) { print("ASSERT - %s[%d]: ", __FILE__, __LINE__);    \
                                                print(__VA_ARGS__); print("\n"); BREAK(); }
 
-void print(const string_view& format, ...);
-void print_string(string& string, const string_view& format, ...);
-
-template<typename RT, typename PT>
-constexpr RT cast(PT pt) { return (RT)pt; }
+void print(const char* format, ...);
 
 template<typename T>
 constexpr auto kb(T v) { return v * (T)1024; }
