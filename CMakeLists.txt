@@ -15,10 +15,11 @@ add_subdirectory(dependencies/capstone)
 project(preem-hle)
 add_executable(${PROJECT_NAME}
     main.cc
-    modules.cc
     utils.cc
     disassembler.cc
-    process.cc)
+    process.cc
+    modules/modules.cc
+)
 
 target_compile_definitions(${PROJECT_NAME}
     PRIVATE

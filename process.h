@@ -4,20 +4,32 @@
 
 struct Process;
 
-enum RegisterIndex {
-    Reg_r0, Reg_r1, Reg_r2,  Reg_r3,  Reg_r4,  Reg_r5,  Reg_r6,  Reg_r7,
-    Reg_r8, Reg_r9, Reg_r10, Reg_r11, Reg_r12,
-    Reg_sp, Reg_lr, Reg_pc, Reg_ip
+struct PeInfo {
+    uint32_t imagebase;
+    uint32_t entrypoint;
 };
 
-Process* process_create(const void* peImage, int imageSize);
-void process_destroy(Process*);
+enum class Register {
+    r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12,
+    sp, lr, pc, ip
+};
 
-void process_register_imported_function(Process* p, const char* module, const char* func, const void* ptr);
-void process_register_imported_function(Process* p, const char* module, int ord, const void* ptr);
+using process_trace_callback_t = void(*)(Process*, uint32_t);
 
-uint32_t process_register_read(const Process* p, int reg);
-void process_register_write(Process* p, int reg, uint32_t value);
+Process* process_create(const uint8_t* peImage, int imageSize);
+void     process_destroy(Process*);
 
-void process_reset(Process* p);
-bool process_step(Process* p);
+void     process_install_trace_callback(Process* p, process_trace_callback_t&& callback);
+
+PeInfo   process_pe_get(const Process* p);
+
+void     process_reset(Process* p);
+bool     process_run(Process* p);
+
+void     process_panic_dump(const Process* p);
+
+uint32_t process_reg_read(const Process* p, Register reg);
+    void process_reg_write(Process* p, Register reg, uint32_t value);
+
+uint8_t* process_mem_map(Process* p, uint32_t addr);
+const uint8_t* process_mem_map(const Process* p, uint32_t addr);

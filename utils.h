@@ -17,10 +17,11 @@ using std::make_optional;
  #define BREAK()             __builtin_trap()
 #endif
 
+#define cast                reinterpret_cast
 #define check(expr, ...)    if (!bool(expr)) { print("ASSERT - %s[%d]: ", __FILE__, __LINE__);    \
                                                print(__VA_ARGS__); print("\n"); BREAK(); }
 
-void print(const char* format, ...);
+int print(const char* format, ...);
 
 template<typename T>
 constexpr auto kb(T v) { return v * (T)1024; }
