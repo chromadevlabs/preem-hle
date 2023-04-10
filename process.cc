@@ -8,23 +8,22 @@
 #include "utils.h"
 #include "pe.h"
 
-struct ModuleMethod {
-    using callback_t = void(*)(Process*);
-    std::string module;
-    std::string proc;
-    callback_t cb;
-};
+#include "functions.cc"
+#include "coredll_symbols.inl"
+
+using jump_callback_t = void(*)(Process*);
 
 struct Process {
     uc_engine* context;
     uint8_t*   memory;
-    uint32_t*  jumptable;
     uint32_t   imagebase;
     uint32_t   entrypoint;
 
     std::vector<uc_hook> hooks;
-    std::vector<ModuleMethod> jumplut;
     process_trace_callback_t tracecb;
+
+    uint32_t jumptable[1000];
+    jump_callback_t jumpfuncs[1000];
 };
 
 /* ------------ MemoryMap ------------
@@ -44,7 +43,7 @@ static const Range<uint32_t>  memoryRange      = { 0x00A00000, 0x07DFFFFF };
 static const Range<uint32_t>  jumpTableRange   = { 0x00000000, 0x00001000 };
 
 static const char* coredll_get_name_from_ordinal(uint16_t ord) {
-    #include "coredll_symbols.h"
+    #include "coredll_ordinals.inl"
 
     for (const auto& symbol : coredll_symbols) {
         if (symbol.ord == ord)
@@ -63,11 +62,8 @@ static bool api_trampoline_callback(uc_engine* uc, uc_mem_type type, uint64_t ad
     auto* p = cast<Process*>(user);
 
     const auto index = address / 4;
-    const auto& entry = p->jumplut[index];
 
-    printf("Intercepted call: %s::%s\n", entry.module.c_str(), entry.proc.c_str());
 
-    entry.cb(p);
 
     auto ret = process_reg_read(p, Register::lr);
     process_reg_write(p, Register::pc, ret);
@@ -119,7 +115,7 @@ Process* process_create(const uint8_t* peImage, int peImageSize) {
     p->entrypoint = nt->OptionalHeader.AddressOfEntryPoint;
 
     check(!(nt->OptionalHeader.DllCharacteristics & pe::DLLFlags::DynamicBase), "Erghhh I dont want to support relocations yet");
-    
+
     // Just allocate the whole 128mb space, I don't care about being strict with the CE memory layout.
     auto* base = p->memory = new uint8_t[mb(128)];
 
@@ -167,10 +163,10 @@ Process* process_create(const uint8_t* peImage, int peImageSize) {
 
                 return cast<const char*>(ptr(thunk->u1.AddressOfData + 2));
             }();
-   
-            printf("[%s][%s]: 0x%08lX\n", moduleName, symbolName, jumpTableAddressOffset);
+
+            printf("[%s][%s]: 0x%08X\n", moduleName, symbolName, jumpTableAddressOffset);
             thunk->u1.Function = jumpTableAddressOffset;
-            p->jumplut.push_back({ moduleName, symbolName, nullptr });
+            //p->jumplut.push_back({ moduleName, symbolName, nullptr });
             jumpTableAddressOffset += 4;
 
             thunk++;
@@ -187,13 +183,11 @@ Process* process_create(const uint8_t* peImage, int peImageSize) {
 
     // Jump table is how we translate target API calls into Host calls.
     // We protect the whole page to trigger a callback when the table is touched.
-    p->jumptable = new uint32_t[0x1000 / 4];
     r = uc_mem_map_ptr(p->context, jumpTableRange.getStart(), jumpTableRange.length(), UC_PROT_NONE, p->jumptable);
     check(r == UC_ERR_OK, "failed to map jump table. %s", uc_strerror(r));
 
     uc_hook hook;
-    const auto hookFlags = UC_HOOK_MEM_PROT;
-    r = uc_hook_add(p->context, &hook, hookFlags, api_trampoline_callback, p.get(), jumpTableRange.getStart(), jumpTableRange.getEnd());
+    r = uc_hook_add(p->context, &hook, UC_HOOK_MEM_PROT, (void*)api_trampoline_callback, p.get(), jumpTableRange.getStart(), jumpTableRange.getEnd());
     p->hooks.push_back(hook);
     check(r == UC_ERR_OK, "failed to hook jump table. %s", uc_strerror(r));
 
@@ -206,7 +200,6 @@ void process_destroy(Process* p) {
 
     uc_close(p->context);
     delete[] p->memory;
-    delete[] p->jumptable;
     delete p;
 }
 
@@ -221,9 +214,9 @@ const uint8_t* process_mem_map(const Process* p, uint32_t addr) {
 void process_install_trace_callback(Process* p, process_trace_callback_t&& callback) {
     uc_hook hook = 0;
 
-    const auto r = uc_hook_add(p->context, &hook, UC_HOOK_CODE, trace_proxy, p, p->imagebase, p->imagebase + mb(128));
+    const auto r = uc_hook_add(p->context, &hook, UC_HOOK_CODE, (void*)trace_proxy, p, p->imagebase, p->imagebase + mb(128));
     check(r == UC_ERR_OK, "bad hook install: %s\n", uc_strerror(r));
-    
+
     p->hooks.push_back(hook);
     p->tracecb = std::move(callback);
 }
@@ -293,6 +286,6 @@ void process_panic_dump(const Process* p) {
     dump("ip", Register::ip);
     dump("lr", Register::lr);
     dump("pc", Register::pc);
-    
+
     #undef dump
 }

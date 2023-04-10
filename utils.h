@@ -71,7 +71,7 @@ struct View {
     constexpr View()                    : View(nullptr, nullptr) {}
     constexpr View(T* _first, T* _last) : first(_first), last(_last) {}
 
-    constexpr       auto   size() const { return cast<size_t>(last - first); }
+    constexpr       auto   size() const { return static_cast<size_t>(last - first); }
     constexpr const auto  begin() const { return first; }
     constexpr const auto    end() const { return last; }
     constexpr const auto   data() const { return first; }
