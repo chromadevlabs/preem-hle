@@ -18,6 +18,8 @@ add_executable(${PROJECT_NAME}
     utils.cc
     disassembler.cc
     process.cc
+
+    functions.cc
 )
 
 target_compile_definitions(${PROJECT_NAME}

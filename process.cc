@@ -8,10 +8,9 @@
 #include "utils.h"
 #include "pe.h"
 
-#include "functions.cc"
-#include "coredll_symbols.inl"
-
 using jump_callback_t = void(*)(Process*);
+
+static constexpr auto JumpTableSize = 1000;
 
 struct Process {
     uc_engine* context;
@@ -22,8 +21,8 @@ struct Process {
     std::vector<uc_hook> hooks;
     process_trace_callback_t tracecb;
 
-    uint32_t jumptable[1000];
-    jump_callback_t jumpfuncs[1000];
+    uint32_t jumptable[JumpTableSize];
+    jump_callback_t jumpfuncs[JumpTableSize];
 };
 
 /* ------------ MemoryMap ------------
@@ -52,6 +51,9 @@ static const char* coredll_get_name_from_ordinal(uint16_t ord) {
 
     return nullptr;
 }
+
+// Implemented in symbols.inl
+void* symbol_find(const char*);
 
 static void trace_proxy(uc_engine* uc, uint64_t address, uint64_t size, void* user) {
     auto* p = cast<Process*>(user);
@@ -144,11 +146,12 @@ Process* process_create(const uint8_t* peImage, int peImageSize) {
         return p->memory + address;
     };
 
-    // Apply import table fixups
+    // Apply import table fixups. Essentially the run time linker.
     const auto idir = nt->OptionalHeader.DataDirectory[pe::DirectoryIndex::ImportTable];
     auto*      desc = cast<pe::IMPORT_DESCRIPTOR*>(ptr(idir.VirtualAddress));
 
     auto jumpTableAddressOffset = jumpTableRange.getStart();
+    bool linkedOK = true;
 
     while (desc->Name) {
         const auto moduleName = cast<const char*>(ptr(desc->Name));
@@ -164,16 +167,27 @@ Process* process_create(const uint8_t* peImage, int peImageSize) {
                 return cast<const char*>(ptr(thunk->u1.AddressOfData + 2));
             }();
 
-            printf("[%s][%s]: 0x%08X\n", moduleName, symbolName, jumpTableAddressOffset);
-            thunk->u1.Function = jumpTableAddressOffset;
-            //p->jumplut.push_back({ moduleName, symbolName, nullptr });
-            jumpTableAddressOffset += 4;
+            print("Linking [%s][%s]...", moduleName, symbolName);
 
+            if (auto* s = symbol_find(symbolName)) {
+                p->jumpfuncs[jumpTableAddressOffset] = (jump_callback_t)s;
+                thunk->u1.Function = jumpTableAddressOffset;
+                print("OK!! Loaded at address 0x%08X\n", jumpTableAddressOffset);
+
+                jumpTableAddressOffset += 4;
+                thunk++;
+                continue;
+            }
+
+            print("Failed :(\n");
+            linkedOK = false;
             thunk++;
         }
 
         desc++;
     }
+
+    check(linkedOK, "failed to link");
 
     auto r = uc_open(uc_arch::UC_ARCH_ARM, uc_mode::UC_MODE_ARM, &p->context);
     check(r == UC_ERR_OK, "failed to init unicorn. %s", uc_strerror(r));
@@ -233,6 +247,30 @@ uint32_t process_reg_read(const Process* p, Register reg) {
 
 void process_reg_write(Process* p, Register reg, uint32_t value) {
     uc_reg_write(p->context, uc_reg_map(reg), &value);
+}
+
+uint32_t process_stack_read(const Process* p, int offset) {
+    uint32_t value;
+    memcpy(&value, p->memory + process_reg_read(p, Register::sp) + offset, 4);
+    return value;
+}
+
+void process_stack_write(Process* p, int offset, uint32_t value) {
+    memcpy(p->memory + process_reg_read(p, Register::sp) + offset, &value, 4);
+}
+
+uint32_t process_mem_host_to_target(Process* p, void* ptr) {
+    if (ptr) {
+        check(Range<uintptr_t>(0, mb(128)).contains((uintptr_t)ptr), "host pointer out of range");
+        BREAK();
+    }
+
+    return 0;
+}
+
+void* process_mem_target_to_host(Process* p, uint32_t addr) {
+    // TODO: actually test this is correct, simple math confuses me.
+    return p->memory + (addr - p->imagebase);
 }
 
 void process_reset(Process* p) {

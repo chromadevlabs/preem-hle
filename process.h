@@ -29,7 +29,13 @@ bool     process_run(Process* p);
 void     process_panic_dump(const Process* p);
 
 uint32_t process_reg_read(const Process* p, Register reg);
-    void process_reg_write(Process* p, Register reg, uint32_t value);
+void     process_reg_write(Process* p, Register reg, uint32_t value);
+
+uint32_t process_stack_read(const Process* p, int offset);
+void     process_stack_write(Process* p, int offset, uint32_t value);
+
+uint32_t process_mem_host_to_target(Process* p, void* ptr);
+void*    process_mem_target_to_host(Process* p, uint32_t addr);
 
 uint8_t* process_mem_map(Process* p, uint32_t addr);
 const uint8_t* process_mem_map(const Process* p, uint32_t addr);
