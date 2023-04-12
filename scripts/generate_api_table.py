@@ -1,13 +1,18 @@
-from sys         import argv
 
-module_list = []
+from collections import namedtuple
+from sys import argv
+
+ModuleEntry = namedtuple("ModuleEntry", ["module", "symbol"])
+
+symbols = []
+current_namespace = ""
 
 #-----------------------------------------------------------------------
 class TypeParser:
     def __init__(self, type):
         self.const   = "const" in type
-        self.pointer = "*"     in type
         self.float   = "float" in type
+        self.pointer = "*"     in type
 
         if self.const:
             type = type.replace("const", "")
@@ -38,6 +43,9 @@ class TypeParser:
     def isNamed(self):
         return True if self.name != "" else False
 
+    def isVariadic(self):
+        return True if self.type == "..." else False
+
     def isConst(self):
         return self.const
 
@@ -49,63 +57,60 @@ class TypeParser:
 #-----------------------------------------------------------------------
 
 #-----------------------------------------------------------------------
+# https://learn.microsoft.com/en-us/cpp/build/overview-of-arm-abi-conventions?view=msvc-170
 class ABIAllocator:
     def __init__(self):
-        self.r = 0
-        self.f = 0
-        self.s = 0
+        self.reg_index = 0
+        self.float_reg_index = 0
+        self.stack_offset = 0
 
-    def next(self, type):
+    def nextStackSlot(self):
+        index = self.stack_offset
+        self.stack_offset = self.stack_offset + 1
+        return f"process_stack_read(p, -{index})"
+
+    def nextRegister(self, type):
         if type.isFloat():
-            if self.r == 7:
-                index = self.s
-                self.s = self.s + 1
-                return f"process_stack_read(p, -{index})"
+            if self.float_reg_index == 7:
+                return self.nextStackSlot()
             else:
-                index = self.f
-                self.f = self.f + 1
-                return f"process_reg_read(p, Register::f{index})"
+                index = self.float_reg_index
+                self.float_reg_index = self.float_reg_index + 1
+                return f"process_reg_read(p, Register::s{index})"
         else:
-            if self.r == 3:
-                index = self.s
-                self.s = self.s + 1
-                return f"process_stack_read(p, -{index})"
+            if self.reg_index == 3:
+                return self.nextStackSlot()
             else:
-                index = self.r
-                self.r = self.r + 1
+                index = self.reg_index
+                self.reg_index = self.reg_index + 1
                 return f"process_reg_read(p, Register::r{index})"
 #-----------------------------------------------------------------------
 
 #-----------------------------------------------------------------------
 def parse_func(line):
+    code = ""
     abi = ABIAllocator()
 
-    if line.startswith("const"):
-        name = line[line.find(" "):line.find("(")].strip()
-        ret_type = line[0:line.find(" ")].strip()
-    else:
-        ret_type = line[0:line.find(" ")].strip()
-        name = line[line.find(" "):line.find("(")].strip()
-
-    args = line[line.find("(") + 1 :line.find(")")].split(",")
+    name_start = line.find("(")
+    name_end = line.rfind(" ", 0, name_start)
+    name = line[name_end : name_start].strip()
+    ret_type = line[0 : name_end].strip()
+    args = line[name_start + 1 : line.find(")")].split(",")
     args = list(filter(None, map(lambda arg: arg.strip(), args)))
 
-    code = ""
-
-    module_list.append(name)
+    symbols.append(name)
     code += f"static void {name}_trampoline(Process* p) {{\n"
-
     code += "\t"
     if ret_type == "void":
-        code += f"{name}("
+        code += f"{current_namespace}::{name}("
     else:
-        code += f"const auto r = {name}("
+        code += f"const auto r = {current_namespace}::{name}("
 
     if len(args):
         code += "\n"
         for i, arg in enumerate(args):
             type   = TypeParser(arg)
-            srcReg = abi.next(type)
+            srcReg = abi.nextRegister(type)
 
             code += "\t\t"
             if type.isNamed():
@@ -113,6 +118,8 @@ def parse_func(line):
 
             if type.isPointer():
                 code += f"({type.getType()})process_mem_target_to_host(p, {srcReg})"
+            elif type.isVariadic():
+                code += f"0"
             else:
                 code += f"({type.getType()}){srcReg}"
 
@@ -125,9 +132,9 @@ def parse_func(line):
 
     if ret_type != "void":
         if TypeParser(ret_type).isPointer():
-            code += "\tprocess_reg_write(p, Register::r0, process_mem_host_to_target(p, r));\n"
+            code += "\tprocess_reg_write(p, Register::r0, process_mem_host_to_target(p, (void*)r));\n"
         elif TypeParser(ret_type).isFloat():
-            code += "\tprocess_reg_write(p, Register::f0, r);\n"
+            code += "\tprocess_reg_write(p, Register::s0, r);\n"
         else:
             code += "\tprocess_reg_write(p, Register::r0, r);\n"
 
@@ -140,17 +147,19 @@ def parse_func(line):
 with open(argv[1], "r") as inputFile:
     out = ""
 
-    out += "#include \"process.h\"\n\n"
+    out += "#include \"process.h\"\n"
 
     for line in inputFile.readlines():
+        if line.startswith("namespace"):
+            current_namespace = line.split()[1]
         if line.startswith("FUNC"):
             line = line.replace("FUNC", "").strip()
             line = line[0:line.rfind(")") + 1]
             out += parse_func(line)
 
     out += f"struct {{ const char* name; void* ptr; }} static const sym_table[] = {{\n"
-    for module in module_list:
-        out += f"\t{{ \"{module}\", {module}_trampoline }},\n"
+    for symbol in symbols:
+        out += f"\t{{ \"{symbol}\", (void*){symbol}_trampoline }},\n"
     out += "};\n\n"
 
     out += "#include <string_view>\n"

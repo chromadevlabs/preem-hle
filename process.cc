@@ -62,13 +62,17 @@ static void trace_proxy(uc_engine* uc, uint64_t address, uint64_t size, void* us
 
 static bool api_trampoline_callback(uc_engine* uc, uc_mem_type type, uint64_t address, int size, int64_t value, void* user) {
     auto* p = cast<Process*>(user);
+    check(p, "bad trampoline context");
 
     const auto index = address / 4;
+    const auto f = p->jumpfuncs[index];
+    print("apicall: 0x%08X (%d)\n", address, index);
+    check(f, "bad link");
+    f(p);
 
-
-
-    auto ret = process_reg_read(p, Register::lr);
-    process_reg_write(p, Register::pc, ret);
+    const auto lr = process_reg_read(p, Register::lr);
+    process_reg_write(p, Register::pc, lr);
+    print("LR -> SP (%08X)\n", lr);
 
     return true;
 }
@@ -88,6 +92,16 @@ static constexpr int uc_reg_map(Register r) {
     case Register::r10: return UC_ARM_REG_R10;
     case Register::r11: return UC_ARM_REG_R11;
     case Register::r12: return UC_ARM_REG_R12;
+
+    case Register::s0:  return UC_ARM_REG_S0;
+    case Register::s1:  return UC_ARM_REG_S1;
+    case Register::s2:  return UC_ARM_REG_S2;
+    case Register::s3:  return UC_ARM_REG_S3;
+    case Register::s4:  return UC_ARM_REG_S4;
+    case Register::s5:  return UC_ARM_REG_S5;
+    case Register::s6:  return UC_ARM_REG_S6;
+    case Register::s7:  return UC_ARM_REG_S7;
+
     case Register::sp:  return UC_ARM_REG_SP;
     case Register::lr:  return UC_ARM_REG_LR;
     case Register::pc:  return UC_ARM_REG_PC;
@@ -151,7 +165,6 @@ Process* process_create(const uint8_t* peImage, int peImageSize) {
     auto*      desc = cast<pe::IMPORT_DESCRIPTOR*>(ptr(idir.VirtualAddress));
 
     auto jumpTableAddressOffset = jumpTableRange.getStart();
-    bool linkedOK = true;
 
     while (desc->Name) {
         const auto moduleName = cast<const char*>(ptr(desc->Name));
@@ -169,25 +182,19 @@ Process* process_create(const uint8_t* peImage, int peImageSize) {
 
             print("Linking [%s][%s]...", moduleName, symbolName);
 
-            if (auto* s = symbol_find(symbolName)) {
-                p->jumpfuncs[jumpTableAddressOffset] = (jump_callback_t)s;
-                thunk->u1.Function = jumpTableAddressOffset;
-                print("OK!! Loaded at address 0x%08X\n", jumpTableAddressOffset);
+            auto* s = symbol_find(symbolName);
+            check(s != nullptr, "failed to link");
 
-                jumpTableAddressOffset += 4;
-                thunk++;
-                continue;
-            }
+            p->jumpfuncs[jumpTableAddressOffset] = (jump_callback_t)s;
+            thunk->u1.Function = jumpTableAddressOffset * 4;
+            print("OK!! Loaded at offset %d\n", jumpTableAddressOffset);
 
-            print("Failed :(\n");
-            linkedOK = false;
+            jumpTableAddressOffset++;
             thunk++;
         }
 
         desc++;
     }
-
-    check(linkedOK, "failed to link");
 
     auto r = uc_open(uc_arch::UC_ARCH_ARM, uc_mode::UC_MODE_ARM, &p->context);
     check(r == UC_ERR_OK, "failed to init unicorn. %s", uc_strerror(r));
