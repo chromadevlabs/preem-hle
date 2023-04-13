@@ -60,7 +60,7 @@ static void trace_proxy(uc_engine* uc, uint64_t address, uint64_t size, void* us
     p->tracecb(p, address);
 }
 
-static bool api_trampoline_callback(uc_engine* uc, uc_mem_type type, uint64_t address, int size, int64_t value, void* user) {
+static void api_jump_proxy(uc_engine* uc, uint64_t address, uint64_t size, void* user) {
     auto* p = cast<Process*>(user);
     check(p, "bad trampoline context");
 
@@ -73,8 +73,6 @@ static bool api_trampoline_callback(uc_engine* uc, uc_mem_type type, uint64_t ad
     const auto lr = process_reg_read(p, Register::lr);
     process_reg_write(p, Register::pc, lr);
     print("LR -> SP (%08X)\n", lr);
-
-    return true;
 }
 
 static constexpr int uc_reg_map(Register r) {
@@ -204,14 +202,14 @@ Process* process_create(const uint8_t* peImage, int peImageSize) {
 
     // Jump table is how we translate target API calls into Host calls.
     // We protect the whole page to trigger a callback when the table is touched.
-    r = uc_mem_map_ptr(p->context, jumpTableRange.getStart(), jumpTableRange.length(), UC_PROT_NONE, p->jumptable);
+    r = uc_mem_map_ptr(p->context, jumpTableRange.getStart(), jumpTableRange.length(), UC_PROT_ALL, p->jumptable);
     check(r == UC_ERR_OK, "failed to map jump table. %s", uc_strerror(r));
 
-    uc_hook hook;
-    r = uc_hook_add(p->context, &hook, UC_HOOK_MEM_PROT, (void*)api_trampoline_callback, p.get(), jumpTableRange.getStart(), jumpTableRange.getEnd());
+    uc_hook hook = 0;
+    r = uc_hook_add(p->context, &hook, UC_HOOK_CODE, (void*)api_jump_proxy, p.get(), jumpTableRange.getStart(), jumpTableRange.length());
+    check(r == UC_ERR_OK, "bad api hook install: %s\n", uc_strerror(r));
     p->hooks.push_back(hook);
-    check(r == UC_ERR_OK, "failed to hook jump table. %s", uc_strerror(r));
-
+    
     return p.release();
 }
 
@@ -276,8 +274,10 @@ uint32_t process_mem_host_to_target(Process* p, void* ptr) {
 }
 
 void* process_mem_target_to_host(Process* p, uint32_t addr) {
-    // TODO: actually test this is correct, simple math confuses me.
-    return p->memory + (addr - p->imagebase);
+    if (addr)
+        return p->memory + (addr - p->imagebase);
+
+    return nullptr;
 }
 
 void process_reset(Process* p) {

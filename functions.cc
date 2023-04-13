@@ -1,11 +1,40 @@
 #include <cstdint>
 #include <cmath>
 #include <cstring>
+#include <unordered_map>
 
 using GLenum = unsigned int;
 
 // All functions have to be declared on a single line because I'm lazy and the python parser will break.
 #define FUNC
+
+#pragma pack(push, 1)
+struct SECURITY_ATTRIBUTES {
+    uint32_t length;
+    void* desc;
+    bool inherit;
+};
+#pragma pack(pop)
+
+struct Object {
+    enum class Type {
+        Mutex, Event
+    };
+    
+    Type type;
+    bool free;
+    union {
+        struct {
+        } mutex;
+
+        struct {
+        } event;
+    };
+};
+
+// only ever increments
+static uint32_t handleCounter = 0;
+static std::unordered_map<uint32_t, Object> objects;
 
 namespace coredll {
 FUNC bool DeviceIoControl(uint32_t device, uint32_t code, void* inBuf, uint32_t inBufSize, void* outBuf, uint32_t outBufSize, uint32_t bytesRet, void* lpOverlapped) {
@@ -17,7 +46,9 @@ FUNC uint32_t CreateEventW(void* attributes, bool reset, bool state, const wchar
 }
 
 FUNC uint32_t CreateMutexW(void* attributes, bool initialOwner, const wchar_t* name) {
-    return 0;
+    auto* attr = reinterpret_cast<SECURITY_ATTRIBUTES*>(attributes);
+
+    return ++handleCounter;
 }
 
 FUNC void Sleep(uint32_t time) {
