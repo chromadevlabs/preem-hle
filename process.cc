@@ -52,6 +52,8 @@ static const char* coredll_get_name_from_ordinal(uint16_t ord) {
     return nullptr;
 }
 
+static std::vector<std::string> debug_name_table;
+
 // Implemented in symbols.inl
 void* symbol_find(const char*);
 
@@ -66,13 +68,13 @@ static void api_jump_proxy(uc_engine* uc, uint64_t address, uint64_t size, void*
 
     const auto index = address / 4;
     const auto f = p->jumpfuncs[index];
-    print("apicall: 0x%08X (%d)\n", address, index);
+    print("apicall: 0x%08X '%s' (%d)\n", address, debug_name_table[index].c_str(), index);
+    getchar();
     check(f, "bad link");
     f(p);
 
     const auto lr = process_reg_read(p, Register::lr);
     process_reg_write(p, Register::pc, lr);
-    print("LR -> SP (%08X)\n", lr);
 }
 
 static constexpr int uc_reg_map(Register r) {
@@ -183,6 +185,7 @@ Process* process_create(const uint8_t* peImage, int peImageSize) {
             auto* s = symbol_find(symbolName);
             check(s != nullptr, "failed to link");
 
+            debug_name_table.push_back(symbolName);
             p->jumpfuncs[jumpTableAddressOffset] = (jump_callback_t)s;
             thunk->u1.Function = jumpTableAddressOffset * 4;
             print("OK!! Loaded at offset %d\n", jumpTableAddressOffset);
@@ -209,7 +212,7 @@ Process* process_create(const uint8_t* peImage, int peImageSize) {
     r = uc_hook_add(p->context, &hook, UC_HOOK_CODE, (void*)api_jump_proxy, p.get(), jumpTableRange.getStart(), jumpTableRange.length());
     check(r == UC_ERR_OK, "bad api hook install: %s\n", uc_strerror(r));
     p->hooks.push_back(hook);
-    
+
     return p.release();
 }
 
@@ -266,8 +269,8 @@ void process_stack_write(Process* p, int offset, uint32_t value) {
 
 uint32_t process_mem_host_to_target(Process* p, void* ptr) {
     if (ptr) {
-        check(Range<uintptr_t>(0, mb(128)).contains((uintptr_t)ptr), "host pointer out of range");
-        BREAK();
+        auto addr = uintptr_t(ptr) - (uintptr_t)p->memory;
+        return addr & 0x00000000FFFFFFFF;
     }
 
     return 0;

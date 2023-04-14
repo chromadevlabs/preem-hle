@@ -1,9 +1,16 @@
+#include <unistd.h>
 #include <cstdint>
-#include <cmath>
 #include <cstring>
-#include <unordered_map>
+#include <string>
+#include <vector>
+#include <cstdio>
+#include <cmath>
+
+constexpr uint32_t INVALID_HANDLE_VALUE = 0xffffffff;
 
 using GLenum = unsigned int;
+
+int print(const char* format, ...);
 
 // All functions have to be declared on a single line because I'm lazy and the python parser will break.
 #define FUNC
@@ -18,23 +25,65 @@ struct SECURITY_ATTRIBUTES {
 
 struct Object {
     enum class Type {
-        Mutex, Event
+        Mutex, Event, File
     };
-    
+
+    uint32_t sentinel = 0xdeadbeef;
     Type type;
-    bool free;
     union {
         struct {
+            bool locked;
+            const void* name;
         } mutex;
 
         struct {
         } event;
+
+        FILE* file;
     };
 };
 
-// only ever increments
-static uint32_t handleCounter = 0;
-static std::unordered_map<uint32_t, Object> objects;
+// I make some pretty stupid assumptions about the upper 32 bits of the memory space.
+// It wouldn't change on me between allocations... would it?
+static std::vector<Object*> objects;
+
+static Object* object_alloc() {
+    auto* object = new Object;
+    objects.push_back(object);
+    return object;
+}
+
+static void object_free(Object* object) {
+    // who the fuck came up with this and thought it was a good idea?
+    objects.erase(std::remove(objects.begin(), objects.end(), object), objects.end());
+    delete object;
+}
+
+static Object* object_get(uint32_t handle) {
+    const auto upper = uintptr_t(objects.data()) & 0xFFFFFFFF00000000;
+    const auto address = upper | static_cast<uint64_t> (handle);
+    auto* ptr = reinterpret_cast<void*>(address);
+    auto* obj = static_cast<Object*>(ptr);
+
+    // TODO: do this check
+    //obj->sentinal == 0xdeadbeef;
+
+    return obj;
+}
+
+static uint32_t object_get(const Object* object) {
+    return (uint32_t) uintptr_t(object) & 0x00000000FFFFFFFF;
+}
+
+static constexpr auto wideStringLength(const wchar_t* str) {
+    int l = 0;
+    while (*str) {
+        str++;
+        l++;
+    }
+
+    return l;
+}
 
 namespace coredll {
 FUNC bool DeviceIoControl(uint32_t device, uint32_t code, void* inBuf, uint32_t inBufSize, void* outBuf, uint32_t outBufSize, uint32_t bytesRet, void* lpOverlapped) {
@@ -42,19 +91,21 @@ FUNC bool DeviceIoControl(uint32_t device, uint32_t code, void* inBuf, uint32_t 
 }
 
 FUNC uint32_t CreateEventW(void* attributes, bool reset, bool state, const wchar_t* name) {
-    return 0;
+    return INVALID_HANDLE_VALUE;
 }
 
-FUNC uint32_t CreateMutexW(void* attributes, bool initialOwner, const wchar_t* name) {
-    auto* attr = reinterpret_cast<SECURITY_ATTRIBUTES*>(attributes);
-
-    return ++handleCounter;
+FUNC uint32_t CreateMutexW(SECURITY_ATTRIBUTES* attributes, bool initialOwner, const wchar_t* name) {
+    auto* object = object_alloc();
+    object->type = Object::Type::Mutex;
+    object->mutex.name = name;
+    return object_get(object);
 }
 
 FUNC void Sleep(uint32_t time) {
+    usleep(time * 1000);
 }
 
-FUNC uint32_t WaitForSingleObject(uint32_t handle, uint32_t) {
+FUNC uint32_t WaitForSingleObject(uint32_t handle, uint32_t timeout) {
     return 0;
 }
 
@@ -63,10 +114,53 @@ FUNC uint32_t GetLastError() {
 }
 
 FUNC uint32_t CreateFileW(const wchar_t* path, uint32_t access, uint32_t share, void* attr, uint32_t create, uint32_t flags, uint32_t temp) {
-    return 0;
+    constexpr auto CREATE_NEW         = 1;
+    constexpr auto CREATE_ALWAYS      = 2;
+    constexpr auto OPEN_EXISTING      = 3;
+    constexpr auto OPEN_ALWAYS        = 4;
+    constexpr auto TRUNCATE_EXISTING  = 5;
+
+    constexpr auto GENERIC_READ       = 0x80000000;
+    constexpr auto GENERIC_WRITE      = 0x40000000;
+
+    std::vector<char> rw;
+
+    if (access == GENERIC_READ)
+        rw.push_back('r');
+    if (access == GENERIC_WRITE)
+        rw.push_back('w');
+    if (create == TRUNCATE_EXISTING)
+        rw.push_back('+');
+
+    rw.push_back('b');
+    rw.push_back('\0');
+
+    print("CreateFileW: %ls (%s)...", path, rw.data());
+
+    // Apparently fopen on mac will handle wide char strings???
+    if (auto* file = ::fopen((const char*)path, rw.data())) {
+        auto* object = object_alloc();
+        object->file = file;
+        printf("OK!\n");
+        return object_get(object);
+    }
+
+    printf("Failed!\n");
+    return INVALID_HANDLE_VALUE;
 }
 
 FUNC void CloseHandle(uint32_t handle) {
+    auto* object = object_get(handle);
+
+    switch (object->type) {
+        case Object::Type::Event: break;
+        case Object::Type::Mutex: break;
+        case Object::Type::File: {
+            fclose(object->file);
+        } break;
+    }
+
+    object_free(object);
 }
 
 FUNC uint32_t SetFilePointer(uint32_t hfile, uint32_t distance, uint32_t* highDist, uint32_t method) {
@@ -98,7 +192,7 @@ FUNC uint32_t RegQueryValueExW(uint32_t uint32, const wchar_t* lpValueName, uint
 }
 
 FUNC bool SetSystemMemoryDivision(uint32_t dwNumberOfPages, uint32_t dwNumberOfPagesReserved, uint32_t dwNumberOfPagesShared) {
-    return false;
+    return true;
 }
 
 FUNC uint32_t WaitForMultipleObjects(uint32_t nCount, const uint32_t *lpuint32_ts, bool bWaitAll, uint32_t dwMilliseconds) {
@@ -154,7 +248,6 @@ FUNC bool CreateThread(void* attr, uint32_t stacksize, void* callback, void* use
 }
 
 FUNC void GetLocalTime(void* lpSystemTime) {
-
 }
 
 FUNC bool CreateDirectoryW(const wchar_t* lpPathName, void* lpSecurityAttributes) {
@@ -162,7 +255,17 @@ FUNC bool CreateDirectoryW(const wchar_t* lpPathName, void* lpSecurityAttributes
 }
 
 FUNC int MultiByteToWideChar(uint32_t CodePage, uint32_t dwFlags, const char* lpMultiByteStr, int cbMultiByte, wchar_t* lpWideCharStr, int cchWideChar) {
-    return 0;
+    print("MultiByteToWideChar: %s\n", lpMultiByteStr);
+
+    if (lpWideCharStr == nullptr || cchWideChar == 0) {
+        return cbMultiByte * 2;
+    }
+
+    for (int i = 0; i < cchWideChar; i++) {
+        lpWideCharStr[i] = lpMultiByteStr[i];
+    }
+
+    return cchWideChar;
 }
 
 FUNC bool DeleteFileW(const wchar_t* lpFileName) {
@@ -186,6 +289,14 @@ FUNC uint32_t FindFirstFileW(const wchar_t* lpFileName, void* lpFindFileData) {
 }
 
 FUNC uint32_t GetModuleFileNameW(uint32_t hModule, wchar_t* lpFilename, uint32_t nSize) {
+    if (hModule == 0) {
+        constexpr auto str = L"C:\\app\\trailblazer.exe";
+        constexpr auto len = wideStringLength(str) + 1;
+        memcpy(lpFilename, str, len);
+        printf("GetModuleFileNameW: (0x%08X) %ls\n", hModule, str);
+        return len;
+    }
+
     return 0;
 }
 
@@ -212,6 +323,10 @@ FUNC bool QueryPerformanceFrequency(void* lpFrequency) {
 FUNC bool QueryPerformanceCounter(void* lpPerformanceCount) {
     return false;
 }
+
+enum MMSYS {
+    NOERROR = 0
+};
 
 FUNC uint32_t waveOutGetDevCaps(uint32_t uDeviceID, void* pwoc, int cbwoc) {
     return 0;
@@ -285,12 +400,16 @@ FUNC uint32_t waveInReset(uint32_t hwi) {
     return 0;
 }
 
+static uint32_t wave_volume = 0xFFFFFFFF;
+
 FUNC uint32_t waveOutGetVolume(uint32_t hwo, uint32_t* pdwVolume) {
-    return 0;
+    *pdwVolume = wave_volume;
+    return MMSYS::NOERROR;
 }
 
 FUNC uint32_t waveOutSetVolume(uint32_t hwo, uint32_t dwVolume) {
-    return 0;
+    wave_volume = dwVolume;
+    return MMSYS::NOERROR;
 }
 
 FUNC uint32_t RegisterWindowMessageW(const wchar_t* string) {
@@ -381,22 +500,22 @@ FUNC char* strcpy(char* dst, const char* src) {
     return nullptr;
 }
 
-FUNC const char* __itos(int v)           { return ""; };
-FUNC int         __stoi(const char*)     { return 0; }
-FUNC int         atoi(const char* str)   { return 0; }
-FUNC float       atof(const char* str)   { return 0; }
+FUNC const char* __itos(int v)           { throw nullptr; return ""; };
+FUNC int         __stoi(const char*)     { throw nullptr; return 0; }
+FUNC int         atoi(const char* s)     { return ::atoi(s); }
+FUNC float       atof(const char* s)     { return ::atof(s); }
 
 FUNC int         strcmp(const char* s1, const char* s2)         { return std::strcmp(s1, s2); }
 FUNC char*       strstr(char* s1, const char* s2)               { return std::strstr(s1, s2); }
 FUNC int         strncmp(const char* s1, const char* s2, int n) { return std::strncmp(s1, s2, n); }
-//FUNC uint32_t    strtoul(const char* s1, char** s2, int n)      { return 0; }
-FUNC uint32_t    strtoul(const char* s1, void* s2, int n)       { return 0; }
-
+FUNC uint32_t    strtoul(const char* s1, void* s2, int n)       { return ::strtoul(s1, (char**)s2, n); }
 FUNC char*       strchr(char* s, int n)                         { return std::strchr(s, n); }
 FUNC char*       strrchr(char* s, int n)                        { return std::strrchr(s, n); }
-FUNC wchar_t*    wcsrchr(wchar_t* s, wchar_t c)                 { return nullptr; }
-FUNC int         toupper(int c)                                 { return 0; }
-FUNC int         strlen(const char*)                            { return 0; }
+
+FUNC wchar_t*    wcsrchr(wchar_t* s, wchar_t c)                 { print("wcsrchr: %ls (%lc)\n", s, c); return ::wcsrchr(s, c); }
+
+FUNC int         toupper(int c)                                 { return ::toupper(c); }
+FUNC int         strlen(const char* s)                          { return ::strlen(s); }
 
 // Fuck knows what this is supposed to be.. Maybe truncate func???
 // truncate deees nuts
@@ -519,39 +638,42 @@ FUNC void* memcpy(void* dst, const void* src, int len) {
 }
 
 FUNC void* memset(void* ptr, int value, int num) {
-    return nullptr;
+    return ::memset(ptr, value, num);
 }
 
-FUNC int fclose(uint32_t) {
+FUNC int fclose(uint32_t handle) {
+    auto* obj = object_get(handle);
+    const auto r = ::fclose(obj->file);
+    object_free(obj);
+    return r;
+}
+
+FUNC int ftell(uint32_t handle) {
+    return ::ftell(object_get(handle)->file);
+}
+
+FUNC int feof(uint32_t handle) {
+    return ::feof(object_get(handle)->file);
+}
+
+FUNC int fseek(uint32_t handle, int seek, int offset) {
+    return ::fseek(object_get(handle)->file, seek, offset);
+}
+
+FUNC int _wfopen(const wchar_t* path, const wchar_t* mode) {
     return 0;
 }
 
-FUNC int ftell(uint32_t) {
+FUNC int fopen(const char* path, const char* mode) {
     return 0;
 }
 
-FUNC int feof(uint32_t) {
-    return 0;
+FUNC int fread(void* dst, int size, int count, uint32_t handle) {
+    return ::fread(dst, size, count, object_get(handle)->file);
 }
 
-FUNC int fseek(uint32_t, int, int) {
-    return 0;
-}
-
-FUNC int _wfopen(const wchar_t*, const wchar_t*) {
-    return 0;
-}
-
-FUNC int fopen(const char*, const char*) {
-    return 0;
-}
-
-FUNC int fread(void*, int, int, uint32_t) {
-    return 0;
-}
-
-FUNC int fwrite(const void*, int, int, uint32_t) {
-    return 0;
+FUNC int fwrite(const void* src, int size, int count, uint32_t handle) {
+    return ::fwrite(src, size, count, object_get(handle)->file);
 }
 
 FUNC int rand() {

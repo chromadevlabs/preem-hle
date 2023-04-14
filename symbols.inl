@@ -27,7 +27,7 @@ static void CreateEventW_trampoline(Process* p) {
 
 static void CreateMutexW_trampoline(Process* p) {
     const auto r = coredll::CreateMutexW(
-        /*attributes*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
+        /*attributes*/ (SECURITY_ATTRIBUTES*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
         /*initialOwner*/ (bool)process_reg_read(p, Register::r1),
         /*name*/ (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r2))
     );
@@ -45,7 +45,7 @@ static void Sleep_trampoline(Process* p) {
 static void WaitForSingleObject_trampoline(Process* p) {
     const auto r = coredll::WaitForSingleObject(
         /*handle*/ (uint32_t)process_reg_read(p, Register::r0),
-        (uint32_t)process_reg_read(p, Register::r1)
+        /*timeout*/ (uint32_t)process_reg_read(p, Register::r1)
     );
 
     process_reg_write(p, Register::r0, r);
@@ -824,7 +824,7 @@ static void __stoi_trampoline(Process* p) {
 
 static void atoi_trampoline(Process* p) {
     const auto r = coredll::atoi(
-        /*str*/ (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
+        /*s*/ (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
     );
 
     process_reg_write(p, Register::r0, r);
@@ -832,7 +832,7 @@ static void atoi_trampoline(Process* p) {
 
 static void atof_trampoline(Process* p) {
     const auto r = coredll::atof(
-        /*str*/ (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
+        /*s*/ (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
     );
 
     process_reg_write(p, Register::s0, r);
@@ -913,7 +913,7 @@ static void toupper_trampoline(Process* p) {
 
 static void strlen_trampoline(Process* p) {
     const auto r = coredll::strlen(
-        (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
+        /*s*/ (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
     );
 
     process_reg_write(p, Register::r0, r);
@@ -1255,7 +1255,7 @@ static void memset_trampoline(Process* p) {
 
 static void fclose_trampoline(Process* p) {
     const auto r = coredll::fclose(
-        (uint32_t)process_reg_read(p, Register::r0)
+        /*handle*/ (uint32_t)process_reg_read(p, Register::r0)
     );
 
     process_reg_write(p, Register::r0, r);
@@ -1263,7 +1263,7 @@ static void fclose_trampoline(Process* p) {
 
 static void ftell_trampoline(Process* p) {
     const auto r = coredll::ftell(
-        (uint32_t)process_reg_read(p, Register::r0)
+        /*handle*/ (uint32_t)process_reg_read(p, Register::r0)
     );
 
     process_reg_write(p, Register::r0, r);
@@ -1271,7 +1271,7 @@ static void ftell_trampoline(Process* p) {
 
 static void feof_trampoline(Process* p) {
     const auto r = coredll::feof(
-        (uint32_t)process_reg_read(p, Register::r0)
+        /*handle*/ (uint32_t)process_reg_read(p, Register::r0)
     );
 
     process_reg_write(p, Register::r0, r);
@@ -1279,9 +1279,9 @@ static void feof_trampoline(Process* p) {
 
 static void fseek_trampoline(Process* p) {
     const auto r = coredll::fseek(
-        (uint32_t)process_reg_read(p, Register::r0),
-        (int)process_reg_read(p, Register::r1),
-        (int)process_reg_read(p, Register::r2)
+        /*handle*/ (uint32_t)process_reg_read(p, Register::r0),
+        /*seek*/ (int)process_reg_read(p, Register::r1),
+        /*offset*/ (int)process_reg_read(p, Register::r2)
     );
 
     process_reg_write(p, Register::r0, r);
@@ -1289,8 +1289,8 @@ static void fseek_trampoline(Process* p) {
 
 static void _wfopen_trampoline(Process* p) {
     const auto r = coredll::_wfopen(
-        (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r1))
+        /*path*/ (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
+        /*mode*/ (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r1))
     );
 
     process_reg_write(p, Register::r0, r);
@@ -1298,8 +1298,8 @@ static void _wfopen_trampoline(Process* p) {
 
 static void fopen_trampoline(Process* p) {
     const auto r = coredll::fopen(
-        (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r1))
+        /*path*/ (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
+        /*mode*/ (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r1))
     );
 
     process_reg_write(p, Register::r0, r);
@@ -1307,10 +1307,10 @@ static void fopen_trampoline(Process* p) {
 
 static void fread_trampoline(Process* p) {
     const auto r = coredll::fread(
-        (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        (int)process_reg_read(p, Register::r1),
-        (int)process_reg_read(p, Register::r2),
-        (uint32_t)process_stack_read(p, -0)
+        /*dst*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
+        /*size*/ (int)process_reg_read(p, Register::r1),
+        /*count*/ (int)process_reg_read(p, Register::r2),
+        /*handle*/ (uint32_t)process_stack_read(p, -0)
     );
 
     process_reg_write(p, Register::r0, r);
@@ -1318,10 +1318,10 @@ static void fread_trampoline(Process* p) {
 
 static void fwrite_trampoline(Process* p) {
     const auto r = coredll::fwrite(
-        (const void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        (int)process_reg_read(p, Register::r1),
-        (int)process_reg_read(p, Register::r2),
-        (uint32_t)process_stack_read(p, -0)
+        /*src*/ (const void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
+        /*size*/ (int)process_reg_read(p, Register::r1),
+        /*count*/ (int)process_reg_read(p, Register::r2),
+        /*handle*/ (uint32_t)process_stack_read(p, -0)
     );
 
     process_reg_write(p, Register::r0, r);
