@@ -41,22 +41,30 @@ void disassembler_oneshot(const Process* p, const uint8_t* code, uint32_t size, 
             for (auto op : make_view(d->arm.operands, d->arm.operands + d->arm.op_count)) {
                 if (op.type == ARM_OP_REG) {
                     switch (op.reg) {
-                    case ARM_REG_R0:  print("r0[0x%08X] ", process_reg_read(p, Register::r0)); break;
-                    case ARM_REG_R1:  print("r1[0x%08X] ", process_reg_read(p, Register::r1)); break;
-                    case ARM_REG_R2:  print("r2[0x%08X] ", process_reg_read(p, Register::r2)); break;
-                    case ARM_REG_R3:  print("r3[0x%08X] ", process_reg_read(p, Register::r3)); break;
-                    case ARM_REG_R4:  print("r4[0x%08X] ", process_reg_read(p, Register::r4)); break;
-                    case ARM_REG_R5:  print("r5[0x%08X] ", process_reg_read(p, Register::r5)); break;
-                    case ARM_REG_R6:  print("r6[0x%08X] ", process_reg_read(p, Register::r6)); break;
-                    case ARM_REG_R7:  print("r7[0x%08X] ", process_reg_read(p, Register::r7)); break;
-                    case ARM_REG_R8:  print("r8[0x%08X] ", process_reg_read(p, Register::r8)); break;
-                    case ARM_REG_R9:  print("r9[0x%08X] ", process_reg_read(p, Register::r9)); break;
-                    case ARM_REG_R10: print("r10[0x%08X] ", process_reg_read(p, Register::r10)); break;
-                    case ARM_REG_R11: print("r11[0x%08X] ", process_reg_read(p, Register::r11)); break;
-                    case ARM_REG_SP:  print("sp[0x%08X] ", process_reg_read(p, Register::sp)); break;
-                    case ARM_REG_LR:  print("lr[0x%08X] ", process_reg_read(p, Register::lr)); break;
-                    case ARM_REG_PC:  print("pc[0x%08X] ", process_reg_read(p, Register::pc)); break;
-                    case ARM_REG_IP:  print("ip[0x%08X] ", process_reg_read(p, Register::ip)); break;
+                    case ARM_REG_R0:  print("r0[0x%08X] ",  process_reg_read_u32(p, Register::r0));  break;
+                    case ARM_REG_R1:  print("r1[0x%08X] ",  process_reg_read_u32(p, Register::r1));  break;
+                    case ARM_REG_R2:  print("r2[0x%08X] ",  process_reg_read_u32(p, Register::r2));  break;
+                    case ARM_REG_R3:  print("r3[0x%08X] ",  process_reg_read_u32(p, Register::r3));  break;
+                    case ARM_REG_R4:  print("r4[0x%08X] ",  process_reg_read_u32(p, Register::r4));  break;
+                    case ARM_REG_R5:  print("r5[0x%08X] ",  process_reg_read_u32(p, Register::r5));  break;
+                    case ARM_REG_R6:  print("r6[0x%08X] ",  process_reg_read_u32(p, Register::r6));  break;
+                    case ARM_REG_R7:  print("r7[0x%08X] ",  process_reg_read_u32(p, Register::r7));  break;
+                    case ARM_REG_R8:  print("r8[0x%08X] ",  process_reg_read_u32(p, Register::r8));  break;
+                    case ARM_REG_R9:  print("r9[0x%08X] ",  process_reg_read_u32(p, Register::r9));  break;
+                    case ARM_REG_R10: print("r10[0x%08X] ", process_reg_read_u32(p, Register::r10)); break;
+                    case ARM_REG_R11: print("r11[0x%08X] ", process_reg_read_u32(p, Register::r11)); break;
+                    case ARM_REG_S0:  print("s0[%f] ",      process_reg_read_f32(p, Register::s0));  break;
+                    case ARM_REG_S1:  print("s1[%f] ",      process_reg_read_f32(p, Register::s1));  break;
+                    case ARM_REG_S2:  print("s2[%f] ",      process_reg_read_f32(p, Register::s2));  break;
+                    case ARM_REG_S3:  print("s3[%f] ",      process_reg_read_f32(p, Register::s3));  break;
+                    case ARM_REG_S4:  print("s4[%f] ",      process_reg_read_f32(p, Register::s4));  break;
+                    case ARM_REG_S5:  print("s5[%f] ",      process_reg_read_f32(p, Register::s5));  break;
+                    case ARM_REG_S6:  print("s6[%f] ",      process_reg_read_f32(p, Register::s6));  break;
+                    case ARM_REG_S7:  print("s7[%f] ",      process_reg_read_f32(p, Register::s7));  break;
+                    case ARM_REG_SP:  print("sp[0x%08X] ",  process_reg_read_u32(p, Register::sp));  break;
+                    case ARM_REG_LR:  print("lr[0x%08X] ",  process_reg_read_u32(p, Register::lr));  break;
+                    case ARM_REG_PC:  print("pc[0x%08X] ",  process_reg_read_u32(p, Register::pc));  break;
+                    case ARM_REG_IP:  print("ip[0x%08X] ",  process_reg_read_u32(p, Register::ip));  break;
                     }
                 }
             }

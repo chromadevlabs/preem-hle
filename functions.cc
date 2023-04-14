@@ -1,10 +1,8 @@
-#include <unistd.h>
 #include <cstdint>
 #include <cstring>
-#include <string>
 #include <vector>
-#include <cstdio>
 #include <cmath>
+#include <cstdio>
 
 constexpr uint32_t INVALID_HANDLE_VALUE = 0xffffffff;
 
@@ -75,15 +73,25 @@ static uint32_t object_get(const Object* object) {
     return (uint32_t) uintptr_t(object) & 0x00000000FFFFFFFF;
 }
 
-static constexpr auto wideStringLength(const wchar_t* str) {
-    int l = 0;
-    while (*str) {
-        str++;
-        l++;
+struct String {
+    template<typename CharType>
+    static constexpr size_t length(const CharType* str) {
+        auto start = str;
+
+        while (*str)
+            str++;
+
+        return static_cast<size_t>(str - start);
     }
 
-    return l;
-}
+    template<typename CharType>
+    static constexpr CharType* copy(CharType* dst, const CharType* src) {
+        const auto len = length(src) + 1;
+        ::memcpy(dst, src, len * sizeof(CharType));
+        return dst;
+    }
+};
+
 
 namespace coredll {
 FUNC bool DeviceIoControl(uint32_t device, uint32_t code, void* inBuf, uint32_t inBufSize, void* outBuf, uint32_t outBufSize, uint32_t bytesRet, void* lpOverlapped) {
@@ -102,7 +110,6 @@ FUNC uint32_t CreateMutexW(SECURITY_ATTRIBUTES* attributes, bool initialOwner, c
 }
 
 FUNC void Sleep(uint32_t time) {
-    usleep(time * 1000);
 }
 
 FUNC uint32_t WaitForSingleObject(uint32_t handle, uint32_t timeout) {
@@ -113,7 +120,7 @@ FUNC uint32_t GetLastError() {
     return 0;
 }
 
-FUNC uint32_t CreateFileW(const wchar_t* path, uint32_t access, uint32_t share, void* attr, uint32_t create, uint32_t flags, uint32_t temp) {
+FUNC uint32_t CreateFileW(const wchar_t* rawPath, uint32_t access, uint32_t share, void* attr, uint32_t create, uint32_t flags, uint32_t temp) {
     constexpr auto CREATE_NEW         = 1;
     constexpr auto CREATE_ALWAYS      = 2;
     constexpr auto OPEN_EXISTING      = 3;
@@ -124,7 +131,7 @@ FUNC uint32_t CreateFileW(const wchar_t* path, uint32_t access, uint32_t share, 
     constexpr auto GENERIC_WRITE      = 0x40000000;
 
     std::vector<char> rw;
-
+    
     if (access == GENERIC_READ)
         rw.push_back('r');
     if (access == GENERIC_WRITE)
@@ -135,10 +142,14 @@ FUNC uint32_t CreateFileW(const wchar_t* path, uint32_t access, uint32_t share, 
     rw.push_back('b');
     rw.push_back('\0');
 
+    // MAX_PATH???
+    char path[255]{};
+    
+    snprintf(path, sizeof(path), "%s\\Trailblazer\\%ls", PREEM_HLE_ROM_PATH, rawPath);
     print("CreateFileW: %ls (%s)...", path, rw.data());
 
     // Apparently fopen on mac will handle wide char strings???
-    if (auto* file = ::fopen((const char*)path, rw.data())) {
+    if (auto* file = ::fopen(path, rw.data())) {
         auto* object = object_alloc();
         object->file = file;
         printf("OK!\n");
@@ -255,18 +266,45 @@ FUNC bool CreateDirectoryW(const wchar_t* lpPathName, void* lpSecurityAttributes
 }
 
 FUNC int MultiByteToWideChar(uint32_t CodePage, uint32_t dwFlags, const char* lpMultiByteStr, int cbMultiByte, wchar_t* lpWideCharStr, int cchWideChar) {
-    print("MultiByteToWideChar: %s\n", lpMultiByteStr);
+    if (cbMultiByte == 0)
+        return 0;
 
-    if (lpWideCharStr == nullptr || cchWideChar == 0) {
-        return cbMultiByte * 2;
+    if (cbMultiByte == -1)
+        cbMultiByte = String::length(lpMultiByteStr) + 1;
+
+    if (cchWideChar == 0) {
+        return cbMultiByte;
     }
-
-    for (int i = 0; i < cchWideChar; i++) {
+    
+    const auto len = cbMultiByte + 1;
+    for (int i = 0; i < len; i++) {
         lpWideCharStr[i] = lpMultiByteStr[i];
     }
 
-    return cchWideChar;
+    return len;
 }
+
+FUNC int WideCharToMultiByte(uint32_t CodePage, uint32_t dwFlags, const wchar_t* lpWideCharStr, int cchWideChar, char* lpMultiByteStr, int cbMultiByte, const char* lpDefaultChar, bool* lpUsedDefaultChar) {
+    print("MultiByteToWideChar: %s\n", lpMultiByteStr);
+
+    if (cchWideChar == 0)
+        return 0;
+
+    if (cchWideChar == -1)
+        cchWideChar = String::length(lpWideCharStr) + 1;
+
+    if (cbMultiByte == 0) {
+        return cchWideChar;
+    }
+
+    const auto len = cchWideChar + 1;
+    for (int i = 0; i < len; i++) {
+        lpMultiByteStr[i] = lpWideCharStr[i];
+    }
+
+    return len;
+}
+
 
 FUNC bool DeleteFileW(const wchar_t* lpFileName) {
     return false;
@@ -274,10 +312,6 @@ FUNC bool DeleteFileW(const wchar_t* lpFileName) {
 
 FUNC bool FindClose(uint32_t hFindFile) {
     return false;
-}
-
-FUNC int WideCharToMultiByte(uint32_t CodePage, uint32_t dwFlags, const wchar_t* lpWideCharStr, int cchWideChar, char* lpMultiByteStr, int cbMultiByte, const char* lpDefaultChar, bool* lpUsedDefaultChar) {
-    return 0;
 }
 
 FUNC bool FindNextFileW(uint32_t hFindFile, void* lpFindFileData) {
@@ -290,10 +324,9 @@ FUNC uint32_t FindFirstFileW(const wchar_t* lpFileName, void* lpFindFileData) {
 
 FUNC uint32_t GetModuleFileNameW(uint32_t hModule, wchar_t* lpFilename, uint32_t nSize) {
     if (hModule == 0) {
-        constexpr auto str = L"C:\\app\\trailblazer.exe";
-        constexpr auto len = wideStringLength(str) + 1;
-        memcpy(lpFilename, str, len);
-        printf("GetModuleFileNameW: (0x%08X) %ls\n", hModule, str);
+        constexpr auto str = L"\\trailblazer.exe";
+        constexpr auto len = String::length(str) + 1;
+        String::copy(lpFilename, str);
         return len;
     }
 
@@ -400,15 +433,18 @@ FUNC uint32_t waveInReset(uint32_t hwi) {
     return 0;
 }
 
-static uint32_t wave_volume = 0xFFFFFFFF;
+struct {
+    uint32_t volume = 0x00ff00ff;
+} static wave{};
 
 FUNC uint32_t waveOutGetVolume(uint32_t hwo, uint32_t* pdwVolume) {
-    *pdwVolume = wave_volume;
+    *pdwVolume = wave.volume;
     return MMSYS::NOERROR;
 }
 
 FUNC uint32_t waveOutSetVolume(uint32_t hwo, uint32_t dwVolume) {
-    wave_volume = dwVolume;
+    wave.volume = dwVolume;
+    print("waveOutSetVolume: %08X\n", dwVolume);
     return MMSYS::NOERROR;
 }
 
@@ -496,7 +532,32 @@ FUNC bool DestroyWindow(uint32_t uint32_t) {
     return false;
 }
 
+FUNC int strlen(const char* s) { 
+    return String::length(s);
+}
+
 FUNC char* strcpy(char* dst, const char* src) {
+    return String::copy(dst, src);
+}
+
+FUNC int         strcmp(const char* s1, const char* s2)         { return std::strcmp(s1, s2); }
+FUNC char*       strstr(char* s1, const char* s2)               { return std::strstr(s1, s2); }
+FUNC int         strncmp(const char* s1, const char* s2, int n) { return std::strncmp(s1, s2, n); }
+FUNC char*       strchr(char* s, int n)                         { return std::strchr(s, n); }
+FUNC char*       strrchr(char* s, int n)                        { return std::strrchr(s, n); }
+
+FUNC wchar_t*    wcsrchr(wchar_t* s, wchar_t c)
+{
+    if (s) {
+        const auto start = s;
+        s += String::length(s);
+
+        while (s > start) {
+            if (*s-- == c)
+                return s;
+        }
+    }
+
     return nullptr;
 }
 
@@ -504,18 +565,15 @@ FUNC const char* __itos(int v)           { throw nullptr; return ""; };
 FUNC int         __stoi(const char*)     { throw nullptr; return 0; }
 FUNC int         atoi(const char* s)     { return ::atoi(s); }
 FUNC float       atof(const char* s)     { return ::atof(s); }
-
-FUNC int         strcmp(const char* s1, const char* s2)         { return std::strcmp(s1, s2); }
-FUNC char*       strstr(char* s1, const char* s2)               { return std::strstr(s1, s2); }
-FUNC int         strncmp(const char* s1, const char* s2, int n) { return std::strncmp(s1, s2, n); }
 FUNC uint32_t    strtoul(const char* s1, void* s2, int n)       { return ::strtoul(s1, (char**)s2, n); }
-FUNC char*       strchr(char* s, int n)                         { return std::strchr(s, n); }
-FUNC char*       strrchr(char* s, int n)                        { return std::strrchr(s, n); }
 
-FUNC wchar_t*    wcsrchr(wchar_t* s, wchar_t c)                 { print("wcsrchr: %ls (%lc)\n", s, c); return ::wcsrchr(s, c); }
+FUNC int toupper(int c) { 
+    if (c >= 97 && c <= 122) {
+        return c - 32;
+    }
 
-FUNC int         toupper(int c)                                 { return ::toupper(c); }
-FUNC int         strlen(const char* s)                          { return ::strlen(s); }
+    return c;
+}
 
 // Fuck knows what this is supposed to be.. Maybe truncate func???
 // truncate deees nuts
@@ -602,7 +660,7 @@ FUNC int __dtoi(float v) {
 }
 
 FUNC int32_t __dtos(float v) {
-    return v;
+    return (int32_t) std::round(v);
 }
 
 FUNC float ldexp(float x, int exp) { return std::ldexp(x, exp); }

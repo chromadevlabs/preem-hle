@@ -67,23 +67,23 @@ class ABIAllocator:
     def nextStackSlot(self):
         index = self.stack_offset
         self.stack_offset = self.stack_offset + 1
-        return f"process_stack_read(p, -{index})"
+        return f"process_stack_read(p, {index})"
 
     def nextRegister(self, type):
         if type.isFloat():
-            if self.float_reg_index == 7:
+            if self.float_reg_index == 8:
                 return self.nextStackSlot()
             else:
                 index = self.float_reg_index
                 self.float_reg_index = self.float_reg_index + 1
-                return f"process_reg_read(p, Register::s{index})"
+                return f"process_reg_read_f32(p, Register::s{index})"
         else:
-            if self.reg_index == 3:
+            if self.reg_index == 4:
                 return self.nextStackSlot()
             else:
                 index = self.reg_index
                 self.reg_index = self.reg_index + 1
-                return f"process_reg_read(p, Register::r{index})"
+                return f"process_reg_read_u32(p, Register::r{index})"
 #-----------------------------------------------------------------------
 
 #-----------------------------------------------------------------------
@@ -100,21 +100,14 @@ def parse_func(line):
 
     symbols.append(name)
     code += f"static void {name}_trampoline(Process* p) {{\n"
-    code += "\t"
-    if ret_type == "void":
-        code += f"{current_namespace}::{name}("
-    else:
-        code += f"const auto r = {current_namespace}::{name}("
-
+    
     if len(args):
-        code += "\n"
         for i, arg in enumerate(args):
             type   = TypeParser(arg)
             srcReg = abi.nextRegister(type)
 
-            code += "\t\t"
-            if type.isNamed():
-                code += f"/*{type.getName()}*/ "
+            code += f"\tauto "
+            code += f"_{i}{type.getName()} = " if type.isNamed() else f"_{i} = "
 
             if type.isPointer():
                 code += f"({type.getType()})process_mem_target_to_host(p, {srcReg})"
@@ -123,20 +116,33 @@ def parse_func(line):
             else:
                 code += f"({type.getType()}){srcReg}"
 
-            if i < len(args) - 1:
-                code += ",\n"
+            code += ";\n"
 
         code += "\n\t"
+
+    if ret_type == "void":
+        code += f"{current_namespace}::{name}("
+    else:
+        code += f"const auto r = {current_namespace}::{name}("
+
+    for i, arg in enumerate(args):
+        type = TypeParser(arg)
+        code += f"_{i}{type.getName()}" if type.isNamed() else f"_{i}"
+
+        if i < len(args) - 1:
+            code += ", "
 
     code += ");\n\n"
 
     if ret_type != "void":
         if TypeParser(ret_type).isPointer():
-            code += "\tprocess_reg_write(p, Register::r0, process_mem_host_to_target(p, (void*)r));\n"
+            code += "\tprocess_reg_write_u32(p, Register::r0, process_mem_host_to_target(p, (void*)r));\n"
         elif TypeParser(ret_type).isFloat():
-            code += "\tprocess_reg_write(p, Register::s0, r);\n"
+            code += "\tprocess_reg_write_f32(p, Register::s0, (float)r);\n"
         else:
-            code += "\tprocess_reg_write(p, Register::r0, r);\n"
+            code += "\tprocess_reg_write_u32(p, Register::r0, (uint32_t)r);\n"
+    else:
+        code += "\tprocess_reg_write_u32(p, Register::r0, 0);\n"
 
     code += "}\n\n"
 

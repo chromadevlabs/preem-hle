@@ -18,7 +18,6 @@ int print(const char* format, ...) {
 
 static void trace(Process* p, uint32_t address) {
     disassembler_oneshot(p, process_mem_map(p, address), 4, address);
-    print("");
 }
 
 int main(int argc, const char** argv) {

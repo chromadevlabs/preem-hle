@@ -1,1669 +1,1724 @@
 #include "process.h"
 static void DeviceIoControl_trampoline(Process* p) {
-    const auto r = coredll::DeviceIoControl(
-        /*device*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*code*/ (uint32_t)process_reg_read(p, Register::r1),
-        /*inBuf*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r2)),
-        /*inBufSize*/ (uint32_t)process_stack_read(p, -0),
-        /*outBuf*/ (void*)process_mem_target_to_host(p, process_stack_read(p, -1)),
-        /*outBufSize*/ (uint32_t)process_stack_read(p, -2),
-        /*bytesRet*/ (uint32_t)process_stack_read(p, -3),
-        /*lpOverlapped*/ (void*)process_mem_target_to_host(p, process_stack_read(p, -4))
-    );
+    auto _0device = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1code = (uint32_t)process_reg_read_u32(p, Register::r1);
+    auto _2inBuf = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r2));
+    auto _3inBufSize = (uint32_t)process_reg_read_u32(p, Register::r3);
+    auto _4outBuf = (void*)process_mem_target_to_host(p, process_stack_read(p, 0));
+    auto _5outBufSize = (uint32_t)process_stack_read(p, 1);
+    auto _6bytesRet = (uint32_t)process_stack_read(p, 2);
+    auto _7lpOverlapped = (void*)process_mem_target_to_host(p, process_stack_read(p, 3));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::DeviceIoControl(_0device, _1code, _2inBuf, _3inBufSize, _4outBuf, _5outBufSize, _6bytesRet, _7lpOverlapped);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void CreateEventW_trampoline(Process* p) {
-    const auto r = coredll::CreateEventW(
-        /*attributes*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*reset*/ (bool)process_reg_read(p, Register::r1),
-        /*state*/ (bool)process_reg_read(p, Register::r2),
-        /*name*/ (const wchar_t*)process_mem_target_to_host(p, process_stack_read(p, -0))
-    );
+    auto _0attributes = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1reset = (bool)process_reg_read_u32(p, Register::r1);
+    auto _2state = (bool)process_reg_read_u32(p, Register::r2);
+    auto _3name = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r3));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::CreateEventW(_0attributes, _1reset, _2state, _3name);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void CreateMutexW_trampoline(Process* p) {
-    const auto r = coredll::CreateMutexW(
-        /*attributes*/ (SECURITY_ATTRIBUTES*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*initialOwner*/ (bool)process_reg_read(p, Register::r1),
-        /*name*/ (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r2))
-    );
+    auto _0attributes = (SECURITY_ATTRIBUTES*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1initialOwner = (bool)process_reg_read_u32(p, Register::r1);
+    auto _2name = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r2));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::CreateMutexW(_0attributes, _1initialOwner, _2name);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void Sleep_trampoline(Process* p) {
-    coredll::Sleep(
-        /*time*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0time = (uint32_t)process_reg_read_u32(p, Register::r0);
 
+    coredll::Sleep(_0time);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void WaitForSingleObject_trampoline(Process* p) {
-    const auto r = coredll::WaitForSingleObject(
-        /*handle*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*timeout*/ (uint32_t)process_reg_read(p, Register::r1)
-    );
+    auto _0handle = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1timeout = (uint32_t)process_reg_read_u32(p, Register::r1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::WaitForSingleObject(_0handle, _1timeout);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void GetLastError_trampoline(Process* p) {
-    const auto r = coredll::GetLastError();
+const auto r = coredll::GetLastError();
 
-    process_reg_write(p, Register::r0, r);
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void CreateFileW_trampoline(Process* p) {
-    const auto r = coredll::CreateFileW(
-        /*path*/ (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*access*/ (uint32_t)process_reg_read(p, Register::r1),
-        /*share*/ (uint32_t)process_reg_read(p, Register::r2),
-        /*attr*/ (void*)process_mem_target_to_host(p, process_stack_read(p, -0)),
-        /*create*/ (uint32_t)process_stack_read(p, -1),
-        /*flags*/ (uint32_t)process_stack_read(p, -2),
-        /*temp*/ (uint32_t)process_stack_read(p, -3)
-    );
+    auto _0path = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1access = (uint32_t)process_reg_read_u32(p, Register::r1);
+    auto _2share = (uint32_t)process_reg_read_u32(p, Register::r2);
+    auto _3attr = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r3));
+    auto _4create = (uint32_t)process_stack_read(p, 0);
+    auto _5flags = (uint32_t)process_stack_read(p, 1);
+    auto _6temp = (uint32_t)process_stack_read(p, 2);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::CreateFileW(_0path, _1access, _2share, _3attr, _4create, _5flags, _6temp);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void CloseHandle_trampoline(Process* p) {
-    coredll::CloseHandle(
-        /*handle*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0handle = (uint32_t)process_reg_read_u32(p, Register::r0);
 
+    coredll::CloseHandle(_0handle);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void SetFilePointer_trampoline(Process* p) {
-    const auto r = coredll::SetFilePointer(
-        /*hfile*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*distance*/ (uint32_t)process_reg_read(p, Register::r1),
-        /*highDist*/ (uint32_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r2)),
-        /*method*/ (uint32_t)process_stack_read(p, -0)
-    );
+    auto _0hfile = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1distance = (uint32_t)process_reg_read_u32(p, Register::r1);
+    auto _2highDist = (uint32_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r2));
+    auto _3method = (uint32_t)process_reg_read_u32(p, Register::r3);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::SetFilePointer(_0hfile, _1distance, _2highDist, _3method);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void ReadFile_trampoline(Process* p) {
-    const auto r = coredll::ReadFile(
-        /*hfile*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*buffer*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        /*size*/ (uint32_t)process_reg_read(p, Register::r2),
-        /*outSize*/ (uint32_t*)process_mem_target_to_host(p, process_stack_read(p, -0)),
-        /*overlapped*/ (void*)process_mem_target_to_host(p, process_stack_read(p, -1))
-    );
+    auto _0hfile = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1buffer = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2size = (uint32_t)process_reg_read_u32(p, Register::r2);
+    auto _3outSize = (uint32_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r3));
+    auto _4overlapped = (void*)process_mem_target_to_host(p, process_stack_read(p, 0));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::ReadFile(_0hfile, _1buffer, _2size, _3outSize, _4overlapped);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void OpenEventW_trampoline(Process* p) {
-    const auto r = coredll::OpenEventW(
-        /*dwDesiredAccess*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*bInherituint32_t*/ (bool)process_reg_read(p, Register::r1),
-        /*lpName*/ (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r2))
-    );
+    auto _0dwDesiredAccess = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1bInherituint32_t = (bool)process_reg_read_u32(p, Register::r1);
+    auto _2lpName = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r2));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::OpenEventW(_0dwDesiredAccess, _1bInherituint32_t, _2lpName);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void EventModify_trampoline(Process* p) {
-    const auto r = coredll::EventModify(
-        /*hEvent*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*dwFunc*/ (uint32_t)process_reg_read(p, Register::r1)
-    );
+    auto _0hEvent = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1dwFunc = (uint32_t)process_reg_read_u32(p, Register::r1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::EventModify(_0hEvent, _1dwFunc);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void RegSetValueExW_trampoline(Process* p) {
-    const auto r = coredll::RegSetValueExW(
-        /*uint32*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*lpValueName*/ (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        /*Reserved*/ (uint32_t)process_reg_read(p, Register::r2),
-        /*dwType*/ (uint32_t)process_stack_read(p, -0),
-        /*lpData*/ (const uint8_t*)process_mem_target_to_host(p, process_stack_read(p, -1)),
-        /*cbData*/ (uint32_t)process_stack_read(p, -2)
-    );
+    auto _0uint32 = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1lpValueName = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2Reserved = (uint32_t)process_reg_read_u32(p, Register::r2);
+    auto _3dwType = (uint32_t)process_reg_read_u32(p, Register::r3);
+    auto _4lpData = (const uint8_t*)process_mem_target_to_host(p, process_stack_read(p, 0));
+    auto _5cbData = (uint32_t)process_stack_read(p, 1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::RegSetValueExW(_0uint32, _1lpValueName, _2Reserved, _3dwType, _4lpData, _5cbData);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void RegOpenKeyExW_trampoline(Process* p) {
-    const auto r = coredll::RegOpenKeyExW(
-        /*uint32*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*lpSubKey*/ (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        /*ulOptions*/ (uint32_t)process_reg_read(p, Register::r2),
-        /*samDesired*/ (int)process_stack_read(p, -0),
-        /*phkResult*/ (uint32_t*)process_mem_target_to_host(p, process_stack_read(p, -1))
-    );
+    auto _0uint32 = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1lpSubKey = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2ulOptions = (uint32_t)process_reg_read_u32(p, Register::r2);
+    auto _3samDesired = (int)process_reg_read_u32(p, Register::r3);
+    auto _4phkResult = (uint32_t*)process_mem_target_to_host(p, process_stack_read(p, 0));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::RegOpenKeyExW(_0uint32, _1lpSubKey, _2ulOptions, _3samDesired, _4phkResult);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void RegQueryValueExW_trampoline(Process* p) {
-    const auto r = coredll::RegQueryValueExW(
-        /*uint32*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*lpValueName*/ (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        /*lpReserved*/ (uint32_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r2)),
-        /*lpType*/ (uint32_t*)process_mem_target_to_host(p, process_stack_read(p, -0)),
-        /*lpData*/ (uint8_t*)process_mem_target_to_host(p, process_stack_read(p, -1)),
-        /*lpcbData*/ (uint32_t*)process_mem_target_to_host(p, process_stack_read(p, -2))
-    );
+    auto _0uint32 = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1lpValueName = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2lpReserved = (uint32_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r2));
+    auto _3lpType = (uint32_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r3));
+    auto _4lpData = (uint8_t*)process_mem_target_to_host(p, process_stack_read(p, 0));
+    auto _5lpcbData = (uint32_t*)process_mem_target_to_host(p, process_stack_read(p, 1));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::RegQueryValueExW(_0uint32, _1lpValueName, _2lpReserved, _3lpType, _4lpData, _5lpcbData);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void SetSystemMemoryDivision_trampoline(Process* p) {
-    const auto r = coredll::SetSystemMemoryDivision(
-        /*dwNumberOfPages*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*dwNumberOfPagesReserved*/ (uint32_t)process_reg_read(p, Register::r1),
-        /*dwNumberOfPagesShared*/ (uint32_t)process_reg_read(p, Register::r2)
-    );
+    auto _0dwNumberOfPages = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1dwNumberOfPagesReserved = (uint32_t)process_reg_read_u32(p, Register::r1);
+    auto _2dwNumberOfPagesShared = (uint32_t)process_reg_read_u32(p, Register::r2);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::SetSystemMemoryDivision(_0dwNumberOfPages, _1dwNumberOfPagesReserved, _2dwNumberOfPagesShared);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void WaitForMultipleObjects_trampoline(Process* p) {
-    const auto r = coredll::WaitForMultipleObjects(
-        /*nCount*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*lpuint32_ts*/ (const uint32_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        /*bWaitAll*/ (bool)process_reg_read(p, Register::r2),
-        /*dwMilliseconds*/ (uint32_t)process_stack_read(p, -0)
-    );
+    auto _0nCount = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1lpuint32_ts = (const uint32_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2bWaitAll = (bool)process_reg_read_u32(p, Register::r2);
+    auto _3dwMilliseconds = (uint32_t)process_reg_read_u32(p, Register::r3);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::WaitForMultipleObjects(_0nCount, _1lpuint32_ts, _2bWaitAll, _3dwMilliseconds);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void FindCloseChangeNotification_trampoline(Process* p) {
-    const auto r = coredll::FindCloseChangeNotification(
-        /*hChangeuint32_t*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0hChangeuint32_t = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::FindCloseChangeNotification(_0hChangeuint32_t);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void FindNextChangeNotification_trampoline(Process* p) {
-    const auto r = coredll::FindNextChangeNotification(
-        /*hChangeuint32_t*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0hChangeuint32_t = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::FindNextChangeNotification(_0hChangeuint32_t);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void FindFirstChangeNotificationW_trampoline(Process* p) {
-    const auto r = coredll::FindFirstChangeNotificationW(
-        /*lpPathName*/ (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*bWatchSubtree*/ (bool)process_reg_read(p, Register::r1),
-        /*dwNotifyFilter*/ (uint32_t)process_reg_read(p, Register::r2)
-    );
+    auto _0lpPathName = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1bWatchSubtree = (bool)process_reg_read_u32(p, Register::r1);
+    auto _2dwNotifyFilter = (uint32_t)process_reg_read_u32(p, Register::r2);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::FindFirstChangeNotificationW(_0lpPathName, _1bWatchSubtree, _2dwNotifyFilter);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void GetFileAttributesW_trampoline(Process* p) {
-    const auto r = coredll::GetFileAttributesW(
-        /*lpFileName*/ (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
-    );
+    auto _0lpFileName = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::GetFileAttributesW(_0lpFileName);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void LocalReAlloc_trampoline(Process* p) {
-    const auto r = coredll::LocalReAlloc(
-        /*hMem*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*uBytes*/ (uint32_t)process_reg_read(p, Register::r1),
-        /*uFlags*/ (uint32_t)process_reg_read(p, Register::r2)
-    );
+    auto _0hMem = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1uBytes = (uint32_t)process_reg_read_u32(p, Register::r1);
+    auto _2uFlags = (uint32_t)process_reg_read_u32(p, Register::r2);
 
-    process_reg_write(p, Register::r0, process_mem_host_to_target(p, (void*)r));
+    const auto r = coredll::LocalReAlloc(_0hMem, _1uBytes, _2uFlags);
+
+    process_reg_write_u32(p, Register::r0, process_mem_host_to_target(p, (void*)r));
 }
 
 static void LocalAlloc_trampoline(Process* p) {
-    const auto r = coredll::LocalAlloc(
-        /*uFlags*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*uBytes*/ (uint32_t)process_reg_read(p, Register::r1)
-    );
+    auto _0uFlags = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1uBytes = (uint32_t)process_reg_read_u32(p, Register::r1);
 
-    process_reg_write(p, Register::r0, process_mem_host_to_target(p, (void*)r));
+    const auto r = coredll::LocalAlloc(_0uFlags, _1uBytes);
+
+    process_reg_write_u32(p, Register::r0, process_mem_host_to_target(p, (void*)r));
 }
 
 static void LocalFree_trampoline(Process* p) {
-    const auto r = coredll::LocalFree(
-        /*hMem*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
-    );
+    auto _0hMem = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
 
-    process_reg_write(p, Register::r0, process_mem_host_to_target(p, (void*)r));
+    const auto r = coredll::LocalFree(_0hMem);
+
+    process_reg_write_u32(p, Register::r0, process_mem_host_to_target(p, (void*)r));
 }
 
 static void SetThreadPriority_trampoline(Process* p) {
-    const auto r = coredll::SetThreadPriority(
-        /*handle*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*priority*/ (int)process_reg_read(p, Register::r1)
-    );
+    auto _0handle = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1priority = (int)process_reg_read_u32(p, Register::r1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::SetThreadPriority(_0handle, _1priority);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void TerminateThread_trampoline(Process* p) {
-    const auto r = coredll::TerminateThread(
-        /*handle*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*code*/ (uint32_t)process_reg_read(p, Register::r1)
-    );
+    auto _0handle = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1code = (uint32_t)process_reg_read_u32(p, Register::r1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::TerminateThread(_0handle, _1code);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void SuspendThread_trampoline(Process* p) {
-    const auto r = coredll::SuspendThread(
-        /*handle*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0handle = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::SuspendThread(_0handle);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void ResumeThread_trampoline(Process* p) {
-    const auto r = coredll::ResumeThread(
-        /*handle*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0handle = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::ResumeThread(_0handle);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void CreateThread_trampoline(Process* p) {
-    const auto r = coredll::CreateThread(
-        /*attr*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*stacksize*/ (uint32_t)process_reg_read(p, Register::r1),
-        /*callback*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r2)),
-        /*user*/ (void*)process_mem_target_to_host(p, process_stack_read(p, -0)),
-        /*flags*/ (uint32_t)process_stack_read(p, -1),
-        /*threadid*/ (uint32_t*)process_mem_target_to_host(p, process_stack_read(p, -2))
-    );
+    auto _0attr = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1stacksize = (uint32_t)process_reg_read_u32(p, Register::r1);
+    auto _2callback = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r2));
+    auto _3user = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r3));
+    auto _4flags = (uint32_t)process_stack_read(p, 0);
+    auto _5threadid = (uint32_t*)process_mem_target_to_host(p, process_stack_read(p, 1));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::CreateThread(_0attr, _1stacksize, _2callback, _3user, _4flags, _5threadid);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void GetLocalTime_trampoline(Process* p) {
-    coredll::GetLocalTime(
-        /*lpSystemTime*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
-    );
+    auto _0lpSystemTime = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
 
+    coredll::GetLocalTime(_0lpSystemTime);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void CreateDirectoryW_trampoline(Process* p) {
-    const auto r = coredll::CreateDirectoryW(
-        /*lpPathName*/ (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*lpSecurityAttributes*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r1))
-    );
+    auto _0lpPathName = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1lpSecurityAttributes = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::CreateDirectoryW(_0lpPathName, _1lpSecurityAttributes);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void MultiByteToWideChar_trampoline(Process* p) {
-    const auto r = coredll::MultiByteToWideChar(
-        /*CodePage*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*dwFlags*/ (uint32_t)process_reg_read(p, Register::r1),
-        /*lpMultiByteStr*/ (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r2)),
-        /*cbMultiByte*/ (int)process_stack_read(p, -0),
-        /*lpWideCharStr*/ (wchar_t*)process_mem_target_to_host(p, process_stack_read(p, -1)),
-        /*cchWideChar*/ (int)process_stack_read(p, -2)
-    );
+    auto _0CodePage = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1dwFlags = (uint32_t)process_reg_read_u32(p, Register::r1);
+    auto _2lpMultiByteStr = (const char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r2));
+    auto _3cbMultiByte = (int)process_reg_read_u32(p, Register::r3);
+    auto _4lpWideCharStr = (wchar_t*)process_mem_target_to_host(p, process_stack_read(p, 0));
+    auto _5cchWideChar = (int)process_stack_read(p, 1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::MultiByteToWideChar(_0CodePage, _1dwFlags, _2lpMultiByteStr, _3cbMultiByte, _4lpWideCharStr, _5cchWideChar);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void DeleteFileW_trampoline(Process* p) {
-    const auto r = coredll::DeleteFileW(
-        /*lpFileName*/ (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
-    );
+    auto _0lpFileName = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::DeleteFileW(_0lpFileName);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void FindClose_trampoline(Process* p) {
-    const auto r = coredll::FindClose(
-        /*hFindFile*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0hFindFile = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::FindClose(_0hFindFile);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void WideCharToMultiByte_trampoline(Process* p) {
-    const auto r = coredll::WideCharToMultiByte(
-        /*CodePage*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*dwFlags*/ (uint32_t)process_reg_read(p, Register::r1),
-        /*lpWideCharStr*/ (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r2)),
-        /*cchWideChar*/ (int)process_stack_read(p, -0),
-        /*lpMultiByteStr*/ (char*)process_mem_target_to_host(p, process_stack_read(p, -1)),
-        /*cbMultiByte*/ (int)process_stack_read(p, -2),
-        /*lpDefaultChar*/ (const char*)process_mem_target_to_host(p, process_stack_read(p, -3)),
-        /*lpUsedDefaultChar*/ (bool*)process_mem_target_to_host(p, process_stack_read(p, -4))
-    );
+    auto _0CodePage = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1dwFlags = (uint32_t)process_reg_read_u32(p, Register::r1);
+    auto _2lpWideCharStr = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r2));
+    auto _3cchWideChar = (int)process_reg_read_u32(p, Register::r3);
+    auto _4lpMultiByteStr = (char*)process_mem_target_to_host(p, process_stack_read(p, 0));
+    auto _5cbMultiByte = (int)process_stack_read(p, 1);
+    auto _6lpDefaultChar = (const char*)process_mem_target_to_host(p, process_stack_read(p, 2));
+    auto _7lpUsedDefaultChar = (bool*)process_mem_target_to_host(p, process_stack_read(p, 3));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::WideCharToMultiByte(_0CodePage, _1dwFlags, _2lpWideCharStr, _3cchWideChar, _4lpMultiByteStr, _5cbMultiByte, _6lpDefaultChar, _7lpUsedDefaultChar);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void FindNextFileW_trampoline(Process* p) {
-    const auto r = coredll::FindNextFileW(
-        /*hFindFile*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*lpFindFileData*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r1))
-    );
+    auto _0hFindFile = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1lpFindFileData = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::FindNextFileW(_0hFindFile, _1lpFindFileData);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void FindFirstFileW_trampoline(Process* p) {
-    const auto r = coredll::FindFirstFileW(
-        /*lpFileName*/ (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*lpFindFileData*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r1))
-    );
+    auto _0lpFileName = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1lpFindFileData = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::FindFirstFileW(_0lpFileName, _1lpFindFileData);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void GetModuleFileNameW_trampoline(Process* p) {
-    const auto r = coredll::GetModuleFileNameW(
-        /*hModule*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*lpFilename*/ (wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        /*nSize*/ (uint32_t)process_reg_read(p, Register::r2)
-    );
+    auto _0hModule = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1lpFilename = (wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2nSize = (uint32_t)process_reg_read_u32(p, Register::r2);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::GetModuleFileNameW(_0hModule, _1lpFilename, _2nSize);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void InitializeCriticalSection_trampoline(Process* p) {
-    coredll::InitializeCriticalSection(
-        /*lpCriticalSection*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
-    );
+    auto _0lpCriticalSection = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
 
+    coredll::InitializeCriticalSection(_0lpCriticalSection);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void DeleteCriticalSection_trampoline(Process* p) {
-    coredll::DeleteCriticalSection(
-        /*lpCriticalSection*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
-    );
+    auto _0lpCriticalSection = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
 
+    coredll::DeleteCriticalSection(_0lpCriticalSection);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void EnterCriticalSection_trampoline(Process* p) {
-    coredll::EnterCriticalSection(
-        /*lpCriticalSection*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
-    );
+    auto _0lpCriticalSection = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
 
+    coredll::EnterCriticalSection(_0lpCriticalSection);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void LeaveCriticalSection_trampoline(Process* p) {
-    coredll::LeaveCriticalSection(
-        /*lpCriticalSection*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
-    );
+    auto _0lpCriticalSection = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
 
+    coredll::LeaveCriticalSection(_0lpCriticalSection);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void QueryPerformanceFrequency_trampoline(Process* p) {
-    const auto r = coredll::QueryPerformanceFrequency(
-        /*lpFrequency*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
-    );
+    auto _0lpFrequency = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::QueryPerformanceFrequency(_0lpFrequency);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void QueryPerformanceCounter_trampoline(Process* p) {
-    const auto r = coredll::QueryPerformanceCounter(
-        /*lpPerformanceCount*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
-    );
+    auto _0lpPerformanceCount = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::QueryPerformanceCounter(_0lpPerformanceCount);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void waveOutGetDevCaps_trampoline(Process* p) {
-    const auto r = coredll::waveOutGetDevCaps(
-        /*uDeviceID*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*pwoc*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        /*cbwoc*/ (int)process_reg_read(p, Register::r2)
-    );
+    auto _0uDeviceID = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1pwoc = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2cbwoc = (int)process_reg_read_u32(p, Register::r2);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::waveOutGetDevCaps(_0uDeviceID, _1pwoc, _2cbwoc);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void waveOutGetNumDevs_trampoline(Process* p) {
-    const auto r = coredll::waveOutGetNumDevs();
+const auto r = coredll::waveOutGetNumDevs();
 
-    process_reg_write(p, Register::r0, r);
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void waveOutOpen_trampoline(Process* p) {
-    const auto r = coredll::waveOutOpen(
-        /*phwo*/ (uint32_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*uDeviceID*/ (int)process_reg_read(p, Register::r1),
-        /*pwfx*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r2)),
-        /*dwCallback*/ (uint32_t)process_stack_read(p, -0),
-        /*dwCallbackInstance*/ (uint32_t)process_stack_read(p, -1),
-        /*fdwOpen*/ (uint32_t)process_stack_read(p, -2)
-    );
+    auto _0phwo = (uint32_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1uDeviceID = (int)process_reg_read_u32(p, Register::r1);
+    auto _2pwfx = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r2));
+    auto _3dwCallback = (uint32_t)process_reg_read_u32(p, Register::r3);
+    auto _4dwCallbackInstance = (uint32_t)process_stack_read(p, 0);
+    auto _5fdwOpen = (uint32_t)process_stack_read(p, 1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::waveOutOpen(_0phwo, _1uDeviceID, _2pwfx, _3dwCallback, _4dwCallbackInstance, _5fdwOpen);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void waveOutClose_trampoline(Process* p) {
-    const auto r = coredll::waveOutClose(
-        /*hwo*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::waveOutClose(_0hwo);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void waveOutPrepareHeader_trampoline(Process* p) {
-    const auto r = coredll::waveOutPrepareHeader(
-        /*hwo*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*pwh*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        /*cbwh*/ (int)process_reg_read(p, Register::r2)
-    );
+    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1pwh = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2cbwh = (int)process_reg_read_u32(p, Register::r2);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::waveOutPrepareHeader(_0hwo, _1pwh, _2cbwh);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void waveOutUnprepareHeader_trampoline(Process* p) {
-    const auto r = coredll::waveOutUnprepareHeader(
-        /*hwo*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*pwh*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        /*cbwh*/ (int)process_reg_read(p, Register::r2)
-    );
+    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1pwh = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2cbwh = (int)process_reg_read_u32(p, Register::r2);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::waveOutUnprepareHeader(_0hwo, _1pwh, _2cbwh);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void waveOutWrite_trampoline(Process* p) {
-    const auto r = coredll::waveOutWrite(
-        /*hwo*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*pwh*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        /*cbwh*/ (uint32_t)process_reg_read(p, Register::r2)
-    );
+    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1pwh = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2cbwh = (uint32_t)process_reg_read_u32(p, Register::r2);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::waveOutWrite(_0hwo, _1pwh, _2cbwh);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void waveOutReset_trampoline(Process* p) {
-    const auto r = coredll::waveOutReset(
-        /*hwo*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::waveOutReset(_0hwo);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void waveOutGetPosition_trampoline(Process* p) {
-    const auto r = coredll::waveOutGetPosition(
-        /*hwo*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*pmmt*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        /*cbmmt*/ (uint32_t)process_reg_read(p, Register::r2)
-    );
+    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1pmmt = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2cbmmt = (uint32_t)process_reg_read_u32(p, Register::r2);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::waveOutGetPosition(_0hwo, _1pmmt, _2cbmmt);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void waveInAddBuffer_trampoline(Process* p) {
-    const auto r = coredll::waveInAddBuffer(
-        /*hwi*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*pwh*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        /*cbwh*/ (uint32_t)process_reg_read(p, Register::r2)
-    );
+    auto _0hwi = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1pwh = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2cbwh = (uint32_t)process_reg_read_u32(p, Register::r2);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::waveInAddBuffer(_0hwi, _1pwh, _2cbwh);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void waveInPrepareHeader_trampoline(Process* p) {
-    const auto r = coredll::waveInPrepareHeader(
-        /*hwi*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*pwh*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        /*cbwh*/ (uint32_t)process_reg_read(p, Register::r2)
-    );
+    auto _0hwi = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1pwh = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2cbwh = (uint32_t)process_reg_read_u32(p, Register::r2);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::waveInPrepareHeader(_0hwi, _1pwh, _2cbwh);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void waveInUnprepareHeader_trampoline(Process* p) {
-    const auto r = coredll::waveInUnprepareHeader(
-        /*hwi*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*pwh*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        /*cbwh*/ (uint32_t)process_reg_read(p, Register::r2)
-    );
+    auto _0hwi = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1pwh = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2cbwh = (uint32_t)process_reg_read_u32(p, Register::r2);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::waveInUnprepareHeader(_0hwi, _1pwh, _2cbwh);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void waveInGetDevCaps_trampoline(Process* p) {
-    const auto r = coredll::waveInGetDevCaps(
-        /*uDeviceID*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*pwic*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        /*cbwic*/ (uint32_t)process_reg_read(p, Register::r2)
-    );
+    auto _0uDeviceID = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1pwic = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2cbwic = (uint32_t)process_reg_read_u32(p, Register::r2);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::waveInGetDevCaps(_0uDeviceID, _1pwic, _2cbwic);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void waveInGetNumDevs_trampoline(Process* p) {
-    const auto r = coredll::waveInGetNumDevs();
+const auto r = coredll::waveInGetNumDevs();
 
-    process_reg_write(p, Register::r0, r);
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void waveInStart_trampoline(Process* p) {
-    const auto r = coredll::waveInStart(
-        /*hwi*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0hwi = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::waveInStart(_0hwi);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void waveInOpen_trampoline(Process* p) {
-    const auto r = coredll::waveInOpen(
-        /*phwi*/ (uint32_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*uDeviceID*/ (uint32_t)process_reg_read(p, Register::r1),
-        /*pwfx*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r2)),
-        /*dwCallback*/ (uint32_t)process_stack_read(p, -0),
-        /*dwCallbackInstance*/ (uint32_t)process_stack_read(p, -1),
-        /*fdwOpen*/ (uint32_t)process_stack_read(p, -2)
-    );
+    auto _0phwi = (uint32_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1uDeviceID = (uint32_t)process_reg_read_u32(p, Register::r1);
+    auto _2pwfx = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r2));
+    auto _3dwCallback = (uint32_t)process_reg_read_u32(p, Register::r3);
+    auto _4dwCallbackInstance = (uint32_t)process_stack_read(p, 0);
+    auto _5fdwOpen = (uint32_t)process_stack_read(p, 1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::waveInOpen(_0phwi, _1uDeviceID, _2pwfx, _3dwCallback, _4dwCallbackInstance, _5fdwOpen);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void waveInClose_trampoline(Process* p) {
-    const auto r = coredll::waveInClose(
-        /*hwi*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0hwi = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::waveInClose(_0hwi);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void waveInReset_trampoline(Process* p) {
-    const auto r = coredll::waveInReset(
-        /*hwi*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0hwi = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::waveInReset(_0hwi);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void waveOutGetVolume_trampoline(Process* p) {
-    const auto r = coredll::waveOutGetVolume(
-        /*hwo*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*pdwVolume*/ (uint32_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r1))
-    );
+    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1pdwVolume = (uint32_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::waveOutGetVolume(_0hwo, _1pdwVolume);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void waveOutSetVolume_trampoline(Process* p) {
-    const auto r = coredll::waveOutSetVolume(
-        /*hwo*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*dwVolume*/ (uint32_t)process_reg_read(p, Register::r1)
-    );
+    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1dwVolume = (uint32_t)process_reg_read_u32(p, Register::r1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::waveOutSetVolume(_0hwo, _1dwVolume);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void RegisterWindowMessageW_trampoline(Process* p) {
-    const auto r = coredll::RegisterWindowMessageW(
-        /*string*/ (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
-    );
+    auto _0string = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::RegisterWindowMessageW(_0string);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void SendMessageW_trampoline(Process* p) {
-    const auto r = coredll::SendMessageW(
-        /*hwnd*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*msg*/ (uint32_t)process_reg_read(p, Register::r1),
-        /*wparam*/ (uint32_t)process_reg_read(p, Register::r2),
-        /*lparam*/ (uint32_t)process_stack_read(p, -0)
-    );
+    auto _0hwnd = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1msg = (uint32_t)process_reg_read_u32(p, Register::r1);
+    auto _2wparam = (uint32_t)process_reg_read_u32(p, Register::r2);
+    auto _3lparam = (uint32_t)process_reg_read_u32(p, Register::r3);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::SendMessageW(_0hwnd, _1msg, _2wparam, _3lparam);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void DefWindowProcW_trampoline(Process* p) {
-    const auto r = coredll::DefWindowProcW(
-        /*hwnd*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*msg*/ (uint32_t)process_reg_read(p, Register::r1),
-        /*wparam*/ (uint32_t)process_reg_read(p, Register::r2),
-        /*lparam*/ (uint32_t)process_stack_read(p, -0)
-    );
+    auto _0hwnd = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1msg = (uint32_t)process_reg_read_u32(p, Register::r1);
+    auto _2wparam = (uint32_t)process_reg_read_u32(p, Register::r2);
+    auto _3lparam = (uint32_t)process_reg_read_u32(p, Register::r3);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::DefWindowProcW(_0hwnd, _1msg, _2wparam, _3lparam);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void DispatchMessageW_trampoline(Process* p) {
-    const auto r = coredll::DispatchMessageW(
-        /*msg*/ (const void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
-    );
+    auto _0msg = (const void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::DispatchMessageW(_0msg);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void TranslateMessage_trampoline(Process* p) {
-    const auto r = coredll::TranslateMessage(
-        /*msg*/ (const void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
-    );
+    auto _0msg = (const void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::TranslateMessage(_0msg);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void PeekMessageW_trampoline(Process* p) {
-    const auto r = coredll::PeekMessageW(
-        /*msg*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*hwnd*/ (uint32_t)process_reg_read(p, Register::r1),
-        /*min*/ (int)process_reg_read(p, Register::r2),
-        /*max*/ (int)process_stack_read(p, -0),
-        /*mode*/ (int)process_stack_read(p, -1)
-    );
+    auto _0msg = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1hwnd = (uint32_t)process_reg_read_u32(p, Register::r1);
+    auto _2min = (int)process_reg_read_u32(p, Register::r2);
+    auto _3max = (int)process_reg_read_u32(p, Register::r3);
+    auto _4mode = (int)process_stack_read(p, 0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::PeekMessageW(_0msg, _1hwnd, _2min, _3max, _4mode);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void PostQuitMessage_trampoline(Process* p) {
-    coredll::PostQuitMessage(
-        /*code*/ (int)process_reg_read(p, Register::r0)
-    );
+    auto _0code = (int)process_reg_read_u32(p, Register::r0);
 
+    coredll::PostQuitMessage(_0code);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void ShowCursor_trampoline(Process* p) {
-    const auto r = coredll::ShowCursor(
-        /*show*/ (bool)process_reg_read(p, Register::r0)
-    );
+    auto _0show = (bool)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::ShowCursor(_0show);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void SetCursor_trampoline(Process* p) {
-    const auto r = coredll::SetCursor(
-        /*cursor*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0cursor = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::SetCursor(_0cursor);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void EndPaint_trampoline(Process* p) {
-    const auto r = coredll::EndPaint(
-        /*hwnd*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*paint*/ (const void*)process_mem_target_to_host(p, process_reg_read(p, Register::r1))
-    );
+    auto _0hwnd = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1paint = (const void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::EndPaint(_0hwnd, _1paint);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void BeginPaint_trampoline(Process* p) {
-    const auto r = coredll::BeginPaint(
-        /*hwnd*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*paint*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r1))
-    );
+    auto _0hwnd = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1paint = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::BeginPaint(_0hwnd, _1paint);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void GetStockObject_trampoline(Process* p) {
-    const auto r = coredll::GetStockObject(
-        (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0 = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::GetStockObject(_0);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void LoadCursorW_trampoline(Process* p) {
-    const auto r = coredll::LoadCursorW(
-        /*instance*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*name*/ (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r1))
-    );
+    auto _0instance = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1name = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::LoadCursorW(_0instance, _1name);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void SetForegroundWindow_trampoline(Process* p) {
-    const auto r = coredll::SetForegroundWindow(
-        /*hwnd*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0hwnd = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::SetForegroundWindow(_0hwnd);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void BringWindowToTop_trampoline(Process* p) {
-    const auto r = coredll::BringWindowToTop(
-        /*hwnd*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0hwnd = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::BringWindowToTop(_0hwnd);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void SetFocus_trampoline(Process* p) {
-    const auto r = coredll::SetFocus(
-        /*hwnd*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0hwnd = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::SetFocus(_0hwnd);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void UpdateWindow_trampoline(Process* p) {
-    const auto r = coredll::UpdateWindow(
-        /*hwnd*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0hwnd = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::UpdateWindow(_0hwnd);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void ShowWindow_trampoline(Process* p) {
-    const auto r = coredll::ShowWindow(
-        /*hwnd*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*show*/ (int)process_reg_read(p, Register::r1)
-    );
+    auto _0hwnd = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1show = (int)process_reg_read_u32(p, Register::r1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::ShowWindow(_0hwnd, _1show);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void RegisterClassW_trampoline(Process* p) {
-    const auto r = coredll::RegisterClassW(
-        /*wnd*/ (const void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
-    );
+    auto _0wnd = (const void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::RegisterClassW(_0wnd);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void CreateWindowExW_trampoline(Process* p) {
-    const auto r = coredll::CreateWindowExW(
-        /*dwExStyle*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*lpClassName*/ (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        /*lpWindowName*/ (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r2)),
-        /*dwStyle*/ (uint32_t)process_stack_read(p, -0),
-        /*X*/ (int)process_stack_read(p, -1),
-        /*Y*/ (int)process_stack_read(p, -2),
-        /*nWidth*/ (int)process_stack_read(p, -3),
-        /*nHeight*/ (int)process_stack_read(p, -4),
-        /*hWndParent*/ (uint32_t)process_stack_read(p, -5),
-        /*hMenu*/ (uint32_t)process_stack_read(p, -6),
-        /*hInstance*/ (void*)process_mem_target_to_host(p, process_stack_read(p, -7)),
-        /*lpParam*/ (void*)process_mem_target_to_host(p, process_stack_read(p, -8))
-    );
+    auto _0dwExStyle = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1lpClassName = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2lpWindowName = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r2));
+    auto _3dwStyle = (uint32_t)process_reg_read_u32(p, Register::r3);
+    auto _4X = (int)process_stack_read(p, 0);
+    auto _5Y = (int)process_stack_read(p, 1);
+    auto _6nWidth = (int)process_stack_read(p, 2);
+    auto _7nHeight = (int)process_stack_read(p, 3);
+    auto _8hWndParent = (uint32_t)process_stack_read(p, 4);
+    auto _9hMenu = (uint32_t)process_stack_read(p, 5);
+    auto _10hInstance = (void*)process_mem_target_to_host(p, process_stack_read(p, 6));
+    auto _11lpParam = (void*)process_mem_target_to_host(p, process_stack_read(p, 7));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::CreateWindowExW(_0dwExStyle, _1lpClassName, _2lpWindowName, _3dwStyle, _4X, _5Y, _6nWidth, _7nHeight, _8hWndParent, _9hMenu, _10hInstance, _11lpParam);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void DestroyWindow_trampoline(Process* p) {
-    const auto r = coredll::DestroyWindow(
-        /*uint32_t*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0uint32_t = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
-}
+    const auto r = coredll::DestroyWindow(_0uint32_t);
 
-static void strcpy_trampoline(Process* p) {
-    const auto r = coredll::strcpy(
-        /*dst*/ (char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*src*/ (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r1))
-    );
-
-    process_reg_write(p, Register::r0, process_mem_host_to_target(p, (void*)r));
-}
-
-static void __itos_trampoline(Process* p) {
-    const auto r = coredll::__itos(
-        /*v*/ (int)process_reg_read(p, Register::r0)
-    );
-
-    process_reg_write(p, Register::r0, process_mem_host_to_target(p, (void*)r));
-}
-
-static void __stoi_trampoline(Process* p) {
-    const auto r = coredll::__stoi(
-        (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
-    );
-
-    process_reg_write(p, Register::r0, r);
-}
-
-static void atoi_trampoline(Process* p) {
-    const auto r = coredll::atoi(
-        /*s*/ (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
-    );
-
-    process_reg_write(p, Register::r0, r);
-}
-
-static void atof_trampoline(Process* p) {
-    const auto r = coredll::atof(
-        /*s*/ (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
-    );
-
-    process_reg_write(p, Register::s0, r);
-}
-
-static void strcmp_trampoline(Process* p) {
-    const auto r = coredll::strcmp(
-        /*s1*/ (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*s2*/ (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r1))
-    );
-
-    process_reg_write(p, Register::r0, r);
-}
-
-static void strstr_trampoline(Process* p) {
-    const auto r = coredll::strstr(
-        /*s1*/ (char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*s2*/ (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r1))
-    );
-
-    process_reg_write(p, Register::r0, process_mem_host_to_target(p, (void*)r));
-}
-
-static void strncmp_trampoline(Process* p) {
-    const auto r = coredll::strncmp(
-        /*s1*/ (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*s2*/ (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        /*n*/ (int)process_reg_read(p, Register::r2)
-    );
-
-    process_reg_write(p, Register::r0, r);
-}
-
-static void strtoul_trampoline(Process* p) {
-    const auto r = coredll::strtoul(
-        /*s1*/ (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*s2*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        /*n*/ (int)process_reg_read(p, Register::r2)
-    );
-
-    process_reg_write(p, Register::r0, r);
-}
-
-static void strchr_trampoline(Process* p) {
-    const auto r = coredll::strchr(
-        /*s*/ (char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*n*/ (int)process_reg_read(p, Register::r1)
-    );
-
-    process_reg_write(p, Register::r0, process_mem_host_to_target(p, (void*)r));
-}
-
-static void strrchr_trampoline(Process* p) {
-    const auto r = coredll::strrchr(
-        /*s*/ (char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*n*/ (int)process_reg_read(p, Register::r1)
-    );
-
-    process_reg_write(p, Register::r0, process_mem_host_to_target(p, (void*)r));
-}
-
-static void wcsrchr_trampoline(Process* p) {
-    const auto r = coredll::wcsrchr(
-        /*s*/ (wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*c*/ (wchar_t)process_reg_read(p, Register::r1)
-    );
-
-    process_reg_write(p, Register::r0, process_mem_host_to_target(p, (void*)r));
-}
-
-static void toupper_trampoline(Process* p) {
-    const auto r = coredll::toupper(
-        /*c*/ (int)process_reg_read(p, Register::r0)
-    );
-
-    process_reg_write(p, Register::r0, r);
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void strlen_trampoline(Process* p) {
-    const auto r = coredll::strlen(
-        /*s*/ (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
-    );
+    auto _0s = (const char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::strlen(_0s);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void strcpy_trampoline(Process* p) {
+    auto _0dst = (char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1src = (const char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+
+    const auto r = coredll::strcpy(_0dst, _1src);
+
+    process_reg_write_u32(p, Register::r0, process_mem_host_to_target(p, (void*)r));
+}
+
+static void strcmp_trampoline(Process* p) {
+    auto _0s1 = (const char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1s2 = (const char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+
+    const auto r = coredll::strcmp(_0s1, _1s2);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void strstr_trampoline(Process* p) {
+    auto _0s1 = (char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1s2 = (const char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+
+    const auto r = coredll::strstr(_0s1, _1s2);
+
+    process_reg_write_u32(p, Register::r0, process_mem_host_to_target(p, (void*)r));
+}
+
+static void strncmp_trampoline(Process* p) {
+    auto _0s1 = (const char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1s2 = (const char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2n = (int)process_reg_read_u32(p, Register::r2);
+
+    const auto r = coredll::strncmp(_0s1, _1s2, _2n);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void strchr_trampoline(Process* p) {
+    auto _0s = (char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1n = (int)process_reg_read_u32(p, Register::r1);
+
+    const auto r = coredll::strchr(_0s, _1n);
+
+    process_reg_write_u32(p, Register::r0, process_mem_host_to_target(p, (void*)r));
+}
+
+static void strrchr_trampoline(Process* p) {
+    auto _0s = (char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1n = (int)process_reg_read_u32(p, Register::r1);
+
+    const auto r = coredll::strrchr(_0s, _1n);
+
+    process_reg_write_u32(p, Register::r0, process_mem_host_to_target(p, (void*)r));
+}
+
+static void wcsrchr_trampoline(Process* p) {
+    auto _0s = (wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1c = (wchar_t)process_reg_read_u32(p, Register::r1);
+
+    const auto r = coredll::wcsrchr(_0s, _1c);
+
+    process_reg_write_u32(p, Register::r0, process_mem_host_to_target(p, (void*)r));
+}
+
+static void __itos_trampoline(Process* p) {
+    auto _0v = (int)process_reg_read_u32(p, Register::r0);
+
+    const auto r = coredll::__itos(_0v);
+
+    process_reg_write_u32(p, Register::r0, process_mem_host_to_target(p, (void*)r));
+}
+
+static void __stoi_trampoline(Process* p) {
+    auto _0 = (const char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+
+    const auto r = coredll::__stoi(_0);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void atoi_trampoline(Process* p) {
+    auto _0s = (const char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+
+    const auto r = coredll::atoi(_0s);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void atof_trampoline(Process* p) {
+    auto _0s = (const char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+
+    const auto r = coredll::atof(_0s);
+
+    process_reg_write_f32(p, Register::s0, (float)r);
+}
+
+static void strtoul_trampoline(Process* p) {
+    auto _0s1 = (const char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1s2 = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2n = (int)process_reg_read_u32(p, Register::r2);
+
+    const auto r = coredll::strtoul(_0s1, _1s2, _2n);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void toupper_trampoline(Process* p) {
+    auto _0c = (int)process_reg_read_u32(p, Register::r0);
+
+    const auto r = coredll::toupper(_0c);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void __C_specific_uint32_tr_trampoline(Process* p) {
-    const auto r = coredll::__C_specific_uint32_tr(
-        /*v*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0v = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::__C_specific_uint32_tr(_0v);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void _XcptFilter_trampoline(Process* p) {
-    const auto r = coredll::_XcptFilter(
-        (int)process_reg_read(p, Register::r0),
-        (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r1))
-    );
+    auto _0 = (int)process_reg_read_u32(p, Register::r0);
+    auto _1 = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::_XcptFilter(_0, _1);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void __C_specific_handler_trampoline(Process* p) {
-    coredll::__C_specific_handler(
-        (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        (uint64_t)process_reg_read(p, Register::r1),
-        (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r2)),
-        (void*)process_mem_target_to_host(p, process_stack_read(p, -0))
-    );
+    auto _0 = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1 = (uint64_t)process_reg_read_u32(p, Register::r1);
+    auto _2 = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r2));
+    auto _3 = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r3));
 
+    coredll::__C_specific_handler(_0, _1, _2, _3);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void __lts_trampoline(Process* p) {
-    const auto r = coredll::__lts(
-        /*a*/ (int32_t)process_reg_read(p, Register::r0),
-        /*b*/ (int32_t)process_reg_read(p, Register::r1)
-    );
+    auto _0a = (int32_t)process_reg_read_u32(p, Register::r0);
+    auto _1b = (int32_t)process_reg_read_u32(p, Register::r1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::__lts(_0a, _1b);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void __gts_trampoline(Process* p) {
-    const auto r = coredll::__gts(
-        /*a*/ (int32_t)process_reg_read(p, Register::r0),
-        /*b*/ (int32_t)process_reg_read(p, Register::r1)
-    );
+    auto _0a = (int32_t)process_reg_read_u32(p, Register::r0);
+    auto _1b = (int32_t)process_reg_read_u32(p, Register::r1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::__gts(_0a, _1b);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void __stou_trampoline(Process* p) {
-    const auto r = coredll::__stou(
-        /*v*/ (int32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0v = (int32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::__stou(_0v);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void __rt_sdiv_trampoline(Process* p) {
-    const auto r = coredll::__rt_sdiv(
-        /*a*/ (int32_t)process_reg_read(p, Register::r0),
-        /*b*/ (int32_t)process_reg_read(p, Register::r1)
-    );
+    auto _0a = (int32_t)process_reg_read_u32(p, Register::r0);
+    auto _1b = (int32_t)process_reg_read_u32(p, Register::r1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::__rt_sdiv(_0a, _1b);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void __rt_udiv_trampoline(Process* p) {
-    const auto r = coredll::__rt_udiv(
-        /*a*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*b*/ (uint32_t)process_reg_read(p, Register::r1)
-    );
+    auto _0a = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1b = (uint32_t)process_reg_read_u32(p, Register::r1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::__rt_udiv(_0a, _1b);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void __divs_trampoline(Process* p) {
-    const auto r = coredll::__divs(
-        /*a*/ (int32_t)process_reg_read(p, Register::r0),
-        /*b*/ (int32_t)process_reg_read(p, Register::r1)
-    );
+    auto _0a = (int32_t)process_reg_read_u32(p, Register::r0);
+    auto _1b = (int32_t)process_reg_read_u32(p, Register::r1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::__divs(_0a, _1b);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void __rt_sdiv64by64_trampoline(Process* p) {
-    const auto r = coredll::__rt_sdiv64by64(
-        /*a*/ (int64_t)process_reg_read(p, Register::r0),
-        /*b*/ (int64_t)process_reg_read(p, Register::r1)
-    );
+    auto _0a = (int64_t)process_reg_read_u32(p, Register::r0);
+    auto _1b = (int64_t)process_reg_read_u32(p, Register::r1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::__rt_sdiv64by64(_0a, _1b);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void __rt_udiv64by64_trampoline(Process* p) {
-    const auto r = coredll::__rt_udiv64by64(
-        /*a*/ (uint64_t)process_reg_read(p, Register::r0),
-        /*b*/ (uint64_t)process_reg_read(p, Register::r1)
-    );
+    auto _0a = (uint64_t)process_reg_read_u32(p, Register::r0);
+    auto _1b = (uint64_t)process_reg_read_u32(p, Register::r1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::__rt_udiv64by64(_0a, _1b);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void __rt_urem64by64_trampoline(Process* p) {
-    const auto r = coredll::__rt_urem64by64(
-        /*a*/ (uint64_t)process_reg_read(p, Register::r0),
-        /*b*/ (uint64_t)process_reg_read(p, Register::r1)
-    );
+    auto _0a = (uint64_t)process_reg_read_u32(p, Register::r0);
+    auto _1b = (uint64_t)process_reg_read_u32(p, Register::r1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::__rt_urem64by64(_0a, _1b);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void __adds_trampoline(Process* p) {
-    const auto r = coredll::__adds(
-        /*a*/ (int32_t)process_reg_read(p, Register::r0),
-        /*b*/ (int32_t)process_reg_read(p, Register::r1)
-    );
+    auto _0a = (int32_t)process_reg_read_u32(p, Register::r0);
+    auto _1b = (int32_t)process_reg_read_u32(p, Register::r1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::__adds(_0a, _1b);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void __subs_trampoline(Process* p) {
-    const auto r = coredll::__subs(
-        /*a*/ (int32_t)process_reg_read(p, Register::r0),
-        /*b*/ (int32_t)process_reg_read(p, Register::r1)
-    );
+    auto _0a = (int32_t)process_reg_read_u32(p, Register::r0);
+    auto _1b = (int32_t)process_reg_read_u32(p, Register::r1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::__subs(_0a, _1b);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void __negs_trampoline(Process* p) {
-    const auto r = coredll::__negs(
-        /*a*/ (int32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0a = (int32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::__negs(_0a);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void __muls_trampoline(Process* p) {
-    const auto r = coredll::__muls(
-        /*a*/ (int32_t)process_reg_read(p, Register::r0),
-        /*b*/ (int32_t)process_reg_read(p, Register::r1)
-    );
+    auto _0a = (int32_t)process_reg_read_u32(p, Register::r0);
+    auto _1b = (int32_t)process_reg_read_u32(p, Register::r1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::__muls(_0a, _1b);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void __utos_trampoline(Process* p) {
-    const auto r = coredll::__utos(
-        /*v*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0v = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::__utos(_0v);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void __utod_trampoline(Process* p) {
-    const auto r = coredll::__utod(
-        /*v*/ (float)process_reg_read(p, Register::s0)
-    );
+    auto _0v = (float)process_reg_read_f32(p, Register::s0);
 
-    process_reg_write(p, Register::s0, r);
+    const auto r = coredll::__utod(_0v);
+
+    process_reg_write_f32(p, Register::s0, (float)r);
 }
 
 static void __stod_trampoline(Process* p) {
-    const auto r = coredll::__stod(
-        /*v*/ (int32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0v = (int32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::s0, r);
+    const auto r = coredll::__stod(_0v);
+
+    process_reg_write_f32(p, Register::s0, (float)r);
 }
 
 static void __muld_trampoline(Process* p) {
-    const auto r = coredll::__muld(
-        /*a*/ (int32_t)process_reg_read(p, Register::r0),
-        /*b*/ (int32_t)process_reg_read(p, Register::r1)
-    );
+    auto _0a = (int32_t)process_reg_read_u32(p, Register::r0);
+    auto _1b = (int32_t)process_reg_read_u32(p, Register::r1);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::__muld(_0a, _1b);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void __dtoi_trampoline(Process* p) {
-    const auto r = coredll::__dtoi(
-        /*v*/ (float)process_reg_read(p, Register::s0)
-    );
+    auto _0v = (float)process_reg_read_f32(p, Register::s0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::__dtoi(_0v);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void __dtos_trampoline(Process* p) {
-    const auto r = coredll::__dtos(
-        /*v*/ (float)process_reg_read(p, Register::s0)
-    );
+    auto _0v = (float)process_reg_read_f32(p, Register::s0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::__dtos(_0v);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void ldexp_trampoline(Process* p) {
-    const auto r = coredll::ldexp(
-        /*x*/ (float)process_reg_read(p, Register::s0),
-        /*exp*/ (int)process_reg_read(p, Register::r0)
-    );
+    auto _0x = (float)process_reg_read_f32(p, Register::s0);
+    auto _1exp = (int)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::s0, r);
+    const auto r = coredll::ldexp(_0x, _1exp);
+
+    process_reg_write_f32(p, Register::s0, (float)r);
 }
 
 static void atan2_trampoline(Process* p) {
-    const auto r = coredll::atan2(
-        /*y*/ (float)process_reg_read(p, Register::s0),
-        /*x*/ (float)process_reg_read(p, Register::s1)
-    );
+    auto _0y = (float)process_reg_read_f32(p, Register::s0);
+    auto _1x = (float)process_reg_read_f32(p, Register::s1);
 
-    process_reg_write(p, Register::s0, r);
+    const auto r = coredll::atan2(_0y, _1x);
+
+    process_reg_write_f32(p, Register::s0, (float)r);
 }
 
 static void pow_trampoline(Process* p) {
-    const auto r = coredll::pow(
-        /*v*/ (float)process_reg_read(p, Register::s0),
-        /*a*/ (float)process_reg_read(p, Register::s1)
-    );
+    auto _0v = (float)process_reg_read_f32(p, Register::s0);
+    auto _1a = (float)process_reg_read_f32(p, Register::s1);
 
-    process_reg_write(p, Register::s0, r);
+    const auto r = coredll::pow(_0v, _1a);
+
+    process_reg_write_f32(p, Register::s0, (float)r);
 }
 
 static void atan_trampoline(Process* p) {
-    const auto r = coredll::atan(
-        /*x*/ (float)process_reg_read(p, Register::s0)
-    );
+    auto _0x = (float)process_reg_read_f32(p, Register::s0);
 
-    process_reg_write(p, Register::s0, r);
+    const auto r = coredll::atan(_0x);
+
+    process_reg_write_f32(p, Register::s0, (float)r);
 }
 
 static void acos_trampoline(Process* p) {
-    const auto r = coredll::acos(
-        /*v*/ (float)process_reg_read(p, Register::s0)
-    );
+    auto _0v = (float)process_reg_read_f32(p, Register::s0);
 
-    process_reg_write(p, Register::s0, r);
+    const auto r = coredll::acos(_0v);
+
+    process_reg_write_f32(p, Register::s0, (float)r);
 }
 
 static void sqrt_trampoline(Process* p) {
-    const auto r = coredll::sqrt(
-        /*v*/ (float)process_reg_read(p, Register::s0)
-    );
+    auto _0v = (float)process_reg_read_f32(p, Register::s0);
 
-    process_reg_write(p, Register::s0, r);
+    const auto r = coredll::sqrt(_0v);
+
+    process_reg_write_f32(p, Register::s0, (float)r);
 }
 
 static void asin_trampoline(Process* p) {
-    const auto r = coredll::asin(
-        /*v*/ (float)process_reg_read(p, Register::s0)
-    );
+    auto _0v = (float)process_reg_read_f32(p, Register::s0);
 
-    process_reg_write(p, Register::s0, r);
+    const auto r = coredll::asin(_0v);
+
+    process_reg_write_f32(p, Register::s0, (float)r);
 }
 
 static void cos_trampoline(Process* p) {
-    const auto r = coredll::cos(
-        /*v*/ (float)process_reg_read(p, Register::s0)
-    );
+    auto _0v = (float)process_reg_read_f32(p, Register::s0);
 
-    process_reg_write(p, Register::s0, r);
+    const auto r = coredll::cos(_0v);
+
+    process_reg_write_f32(p, Register::s0, (float)r);
 }
 
 static void sin_trampoline(Process* p) {
-    const auto r = coredll::sin(
-        /*v*/ (float)process_reg_read(p, Register::s0)
-    );
+    auto _0v = (float)process_reg_read_f32(p, Register::s0);
 
-    process_reg_write(p, Register::s0, r);
+    const auto r = coredll::sin(_0v);
+
+    process_reg_write_f32(p, Register::s0, (float)r);
 }
 
 static void tan_trampoline(Process* p) {
-    const auto r = coredll::tan(
-        /*v*/ (float)process_reg_read(p, Register::s0)
-    );
+    auto _0v = (float)process_reg_read_f32(p, Register::s0);
 
-    process_reg_write(p, Register::s0, r);
+    const auto r = coredll::tan(_0v);
+
+    process_reg_write_f32(p, Register::s0, (float)r);
 }
 
 static void vsprintf_trampoline(Process* p) {
-    const auto r = coredll::vsprintf(
-        (char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        0
-    );
+    auto _0 = (char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1 = (const char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2 = 0;
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::vsprintf(_0, _1, _2);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void sprintf_trampoline(Process* p) {
-    const auto r = coredll::sprintf(
-        (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        0
-    );
+    auto _0 = (const char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1 = 0;
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::sprintf(_0, _1);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void _snwprintf_trampoline(Process* p) {
-    const auto r = coredll::_snwprintf(
-        /*buf*/ (wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        (int)process_reg_read(p, Register::r1),
-        (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r2)),
-        0
-    );
+    auto _0buf = (wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1 = (int)process_reg_read_u32(p, Register::r1);
+    auto _2 = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r2));
+    auto _3 = 0;
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::_snwprintf(_0buf, _1, _2, _3);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void mbstowcs_trampoline(Process* p) {
-    const auto r = coredll::mbstowcs(
-        /*dst*/ (wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*src*/ (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        /*len*/ (int)process_reg_read(p, Register::r2)
-    );
+    auto _0dst = (wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1src = (const char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2len = (int)process_reg_read_u32(p, Register::r2);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::mbstowcs(_0dst, _1src, _2len);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void memcpy_trampoline(Process* p) {
-    const auto r = coredll::memcpy(
-        /*dst*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*src*/ (const void*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        /*len*/ (int)process_reg_read(p, Register::r2)
-    );
+    auto _0dst = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1src = (const void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2len = (int)process_reg_read_u32(p, Register::r2);
 
-    process_reg_write(p, Register::r0, process_mem_host_to_target(p, (void*)r));
+    const auto r = coredll::memcpy(_0dst, _1src, _2len);
+
+    process_reg_write_u32(p, Register::r0, process_mem_host_to_target(p, (void*)r));
 }
 
 static void memset_trampoline(Process* p) {
-    const auto r = coredll::memset(
-        /*ptr*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*value*/ (int)process_reg_read(p, Register::r1),
-        /*num*/ (int)process_reg_read(p, Register::r2)
-    );
+    auto _0ptr = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1value = (int)process_reg_read_u32(p, Register::r1);
+    auto _2num = (int)process_reg_read_u32(p, Register::r2);
 
-    process_reg_write(p, Register::r0, process_mem_host_to_target(p, (void*)r));
+    const auto r = coredll::memset(_0ptr, _1value, _2num);
+
+    process_reg_write_u32(p, Register::r0, process_mem_host_to_target(p, (void*)r));
 }
 
 static void fclose_trampoline(Process* p) {
-    const auto r = coredll::fclose(
-        /*handle*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0handle = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::fclose(_0handle);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void ftell_trampoline(Process* p) {
-    const auto r = coredll::ftell(
-        /*handle*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0handle = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::ftell(_0handle);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void feof_trampoline(Process* p) {
-    const auto r = coredll::feof(
-        /*handle*/ (uint32_t)process_reg_read(p, Register::r0)
-    );
+    auto _0handle = (uint32_t)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::feof(_0handle);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void fseek_trampoline(Process* p) {
-    const auto r = coredll::fseek(
-        /*handle*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*seek*/ (int)process_reg_read(p, Register::r1),
-        /*offset*/ (int)process_reg_read(p, Register::r2)
-    );
+    auto _0handle = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1seek = (int)process_reg_read_u32(p, Register::r1);
+    auto _2offset = (int)process_reg_read_u32(p, Register::r2);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::fseek(_0handle, _1seek, _2offset);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void _wfopen_trampoline(Process* p) {
-    const auto r = coredll::_wfopen(
-        /*path*/ (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*mode*/ (const wchar_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r1))
-    );
+    auto _0path = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1mode = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::_wfopen(_0path, _1mode);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void fopen_trampoline(Process* p) {
-    const auto r = coredll::fopen(
-        /*path*/ (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*mode*/ (const char*)process_mem_target_to_host(p, process_reg_read(p, Register::r1))
-    );
+    auto _0path = (const char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1mode = (const char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::fopen(_0path, _1mode);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void fread_trampoline(Process* p) {
-    const auto r = coredll::fread(
-        /*dst*/ (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*size*/ (int)process_reg_read(p, Register::r1),
-        /*count*/ (int)process_reg_read(p, Register::r2),
-        /*handle*/ (uint32_t)process_stack_read(p, -0)
-    );
+    auto _0dst = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1size = (int)process_reg_read_u32(p, Register::r1);
+    auto _2count = (int)process_reg_read_u32(p, Register::r2);
+    auto _3handle = (uint32_t)process_reg_read_u32(p, Register::r3);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::fread(_0dst, _1size, _2count, _3handle);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void fwrite_trampoline(Process* p) {
-    const auto r = coredll::fwrite(
-        /*src*/ (const void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*size*/ (int)process_reg_read(p, Register::r1),
-        /*count*/ (int)process_reg_read(p, Register::r2),
-        /*handle*/ (uint32_t)process_stack_read(p, -0)
-    );
+    auto _0src = (const void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1size = (int)process_reg_read_u32(p, Register::r1);
+    auto _2count = (int)process_reg_read_u32(p, Register::r2);
+    auto _3handle = (uint32_t)process_reg_read_u32(p, Register::r3);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::fwrite(_0src, _1size, _2count, _3handle);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void rand_trampoline(Process* p) {
-    const auto r = coredll::rand();
+const auto r = coredll::rand();
 
-    process_reg_write(p, Register::r0, r);
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void malloc_trampoline(Process* p) {
-    const auto r = coredll::malloc(
-        /*size*/ (int)process_reg_read(p, Register::r0)
-    );
+    auto _0size = (int)process_reg_read_u32(p, Register::r0);
 
-    process_reg_write(p, Register::r0, process_mem_host_to_target(p, (void*)r));
+    const auto r = coredll::malloc(_0size);
+
+    process_reg_write_u32(p, Register::r0, process_mem_host_to_target(p, (void*)r));
 }
 
 static void realloc_trampoline(Process* p) {
-    const auto r = coredll::realloc(
-        (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        /*size*/ (int)process_reg_read(p, Register::r1)
-    );
+    auto _0 = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1size = (int)process_reg_read_u32(p, Register::r1);
 
-    process_reg_write(p, Register::r0, process_mem_host_to_target(p, (void*)r));
+    const auto r = coredll::realloc(_0, _1size);
+
+    process_reg_write_u32(p, Register::r0, process_mem_host_to_target(p, (void*)r));
 }
 
 static void free_trampoline(Process* p) {
-    coredll::free(
-        (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
-    );
+    auto _0 = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
 
+    coredll::free(_0);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void memmove_trampoline(Process* p) {
-    const auto r = coredll::memmove(
-        (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        (int)process_reg_read(p, Register::r2)
-    );
+    auto _0 = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1 = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2 = (int)process_reg_read_u32(p, Register::r2);
 
-    process_reg_write(p, Register::r0, process_mem_host_to_target(p, (void*)r));
+    const auto r = coredll::memmove(_0, _1, _2);
+
+    process_reg_write_u32(p, Register::r0, process_mem_host_to_target(p, (void*)r));
 }
 
 static void memcmp_trampoline(Process* p) {
-    const auto r = coredll::memcmp(
-        (const void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        (const void*)process_mem_target_to_host(p, process_reg_read(p, Register::r1)),
-        (int)process_reg_read(p, Register::r2)
-    );
+    auto _0 = (const void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1 = (const void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2 = (int)process_reg_read_u32(p, Register::r2);
 
-    process_reg_write(p, Register::r0, r);
+    const auto r = coredll::memcmp(_0, _1, _2);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
 static void qsort_trampoline(Process* p) {
-    coredll::qsort(
-        (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0)),
-        (int)process_reg_read(p, Register::r1),
-        (int)process_reg_read(p, Register::r2),
-        (void*)process_mem_target_to_host(p, process_stack_read(p, -0))
-    );
+    auto _0 = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1 = (int)process_reg_read_u32(p, Register::r1);
+    auto _2 = (int)process_reg_read_u32(p, Register::r2);
+    auto _3 = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r3));
 
+    coredll::qsort(_0, _1, _2, _3);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void eglSwapIntervalNV_trampoline(Process* p) {
-    libGLES_CM::eglSwapIntervalNV();
+libGLES_CM::eglSwapIntervalNV();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glEnableClientState_trampoline(Process* p) {
-    libGLES_CM::glEnableClientState(
-        /*arr*/ (GLenum)process_reg_read(p, Register::r0)
-    );
+    auto _0arr = (GLenum)process_reg_read_u32(p, Register::r0);
 
+    libGLES_CM::glEnableClientState(_0arr);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glDisableClientState_trampoline(Process* p) {
-    libGLES_CM::glDisableClientState(
-        /*arr*/ (GLenum)process_reg_read(p, Register::r0)
-    );
+    auto _0arr = (GLenum)process_reg_read_u32(p, Register::r0);
 
+    libGLES_CM::glDisableClientState(_0arr);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glVertexPointer_trampoline(Process* p) {
-    libGLES_CM::glVertexPointer(
-        /*size*/ (uint32_t)process_reg_read(p, Register::r0),
-        /*type*/ (GLenum)process_reg_read(p, Register::r1),
-        /*stride*/ (uint32_t)process_reg_read(p, Register::r2),
-        /*pointer*/ (const void*)process_mem_target_to_host(p, process_stack_read(p, -0))
-    );
+    auto _0size = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1type = (GLenum)process_reg_read_u32(p, Register::r1);
+    auto _2stride = (uint32_t)process_reg_read_u32(p, Register::r2);
+    auto _3pointer = (const void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r3));
 
+    libGLES_CM::glVertexPointer(_0size, _1type, _2stride, _3pointer);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glColorPointer_trampoline(Process* p) {
-    libGLES_CM::glColorPointer();
+libGLES_CM::glColorPointer();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glClientActiveTexture_trampoline(Process* p) {
-    libGLES_CM::glClientActiveTexture();
+libGLES_CM::glClientActiveTexture();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glTexCoordPointer_trampoline(Process* p) {
-    libGLES_CM::glTexCoordPointer();
+libGLES_CM::glTexCoordPointer();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glDrawElements_trampoline(Process* p) {
-    libGLES_CM::glDrawElements();
+libGLES_CM::glDrawElements();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glTexEnvf_trampoline(Process* p) {
-    libGLES_CM::glTexEnvf();
+libGLES_CM::glTexEnvf();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glDepthRangef_trampoline(Process* p) {
-    libGLES_CM::glDepthRangef();
+libGLES_CM::glDepthRangef();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glDepthMask_trampoline(Process* p) {
-    libGLES_CM::glDepthMask();
+libGLES_CM::glDepthMask();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glDepthFunc_trampoline(Process* p) {
-    libGLES_CM::glDepthFunc();
+libGLES_CM::glDepthFunc();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glCullFace_trampoline(Process* p) {
-    libGLES_CM::glCullFace();
+libGLES_CM::glCullFace();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glEnable_trampoline(Process* p) {
-    libGLES_CM::glEnable(
-        /*feat*/ (GLenum)process_reg_read(p, Register::r0)
-    );
+    auto _0feat = (GLenum)process_reg_read_u32(p, Register::r0);
 
+    libGLES_CM::glEnable(_0feat);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glDisable_trampoline(Process* p) {
-    libGLES_CM::glDisable(
-        /*feat*/ (GLenum)process_reg_read(p, Register::r0)
-    );
+    auto _0feat = (GLenum)process_reg_read_u32(p, Register::r0);
 
+    libGLES_CM::glDisable(_0feat);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glGetIntegerv_trampoline(Process* p) {
-    libGLES_CM::glGetIntegerv();
+libGLES_CM::glGetIntegerv();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glGetString_trampoline(Process* p) {
-    const auto r = libGLES_CM::glGetString();
+const auto r = libGLES_CM::glGetString();
 
-    process_reg_write(p, Register::r0, process_mem_host_to_target(p, (void*)r));
+    process_reg_write_u32(p, Register::r0, process_mem_host_to_target(p, (void*)r));
 }
 
 static void eglMakeCurrent_trampoline(Process* p) {
-    libGLES_CM::eglMakeCurrent(
-        (void*)process_mem_target_to_host(p, process_reg_read(p, Register::r0))
-    );
+    auto _0 = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
 
+    libGLES_CM::eglMakeCurrent(_0);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void eglCreateWindowSurface_trampoline(Process* p) {
-    libGLES_CM::eglCreateWindowSurface();
+libGLES_CM::eglCreateWindowSurface();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void eglCreateContext_trampoline(Process* p) {
-    libGLES_CM::eglCreateContext();
+libGLES_CM::eglCreateContext();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void eglChooseConfig_trampoline(Process* p) {
-    libGLES_CM::eglChooseConfig();
+libGLES_CM::eglChooseConfig();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void eglGetConfigs_trampoline(Process* p) {
-    libGLES_CM::eglGetConfigs();
+libGLES_CM::eglGetConfigs();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void eglInitialize_trampoline(Process* p) {
-    libGLES_CM::eglInitialize();
+libGLES_CM::eglInitialize();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void eglGetDisplay_trampoline(Process* p) {
-    libGLES_CM::eglGetDisplay();
+libGLES_CM::eglGetDisplay();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void eglTerminate_trampoline(Process* p) {
-    libGLES_CM::eglTerminate();
+libGLES_CM::eglTerminate();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void eglDestroySurface_trampoline(Process* p) {
-    libGLES_CM::eglDestroySurface();
+libGLES_CM::eglDestroySurface();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void eglDestroyContext_trampoline(Process* p) {
-    libGLES_CM::eglDestroyContext();
+libGLES_CM::eglDestroyContext();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glClear_trampoline(Process* p) {
-    libGLES_CM::glClear();
+libGLES_CM::glClear();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glClearColorx_trampoline(Process* p) {
-    libGLES_CM::glClearColorx();
+libGLES_CM::glClearColorx();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void eglSwapBuffers_trampoline(Process* p) {
-    libGLES_CM::eglSwapBuffers();
+libGLES_CM::eglSwapBuffers();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glFinish_trampoline(Process* p) {
-    libGLES_CM::glFinish();
+libGLES_CM::glFinish();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glLoadMatrixx_trampoline(Process* p) {
-    libGLES_CM::glLoadMatrixx();
+libGLES_CM::glLoadMatrixx();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glMatrixMode_trampoline(Process* p) {
-    libGLES_CM::glMatrixMode(
-        /*mode*/ (GLenum)process_reg_read(p, Register::r0)
-    );
+    auto _0mode = (GLenum)process_reg_read_u32(p, Register::r0);
 
+    libGLES_CM::glMatrixMode(_0mode);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glViewport_trampoline(Process* p) {
-    libGLES_CM::glViewport(
-        /*x*/ (float)process_reg_read(p, Register::s0),
-        /*y*/ (float)process_reg_read(p, Register::s1),
-        /*w*/ (float)process_reg_read(p, Register::s2),
-        /*h*/ (float)process_reg_read(p, Register::s3)
-    );
+    auto _0x = (float)process_reg_read_f32(p, Register::s0);
+    auto _1y = (float)process_reg_read_f32(p, Register::s1);
+    auto _2w = (float)process_reg_read_f32(p, Register::s2);
+    auto _3h = (float)process_reg_read_f32(p, Register::s3);
 
+    libGLES_CM::glViewport(_0x, _1y, _2w, _3h);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glScissor_trampoline(Process* p) {
-    libGLES_CM::glScissor();
+libGLES_CM::glScissor();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glGenTextures_trampoline(Process* p) {
-    libGLES_CM::glGenTextures(
-        /*count*/ (int)process_reg_read(p, Register::r0),
-        /*uint32_ts*/ (uint32_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r1))
-    );
+    auto _0count = (int)process_reg_read_u32(p, Register::r0);
+    auto _1uint32_ts = (uint32_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
 
+    libGLES_CM::glGenTextures(_0count, _1uint32_ts);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glDeleteTextures_trampoline(Process* p) {
-    libGLES_CM::glDeleteTextures(
-        /*count*/ (int)process_reg_read(p, Register::r0),
-        /*uint32_ts*/ (uint32_t*)process_mem_target_to_host(p, process_reg_read(p, Register::r1))
-    );
+    auto _0count = (int)process_reg_read_u32(p, Register::r0);
+    auto _1uint32_ts = (uint32_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
 
+    libGLES_CM::glDeleteTextures(_0count, _1uint32_ts);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glTexImage2D_trampoline(Process* p) {
-    libGLES_CM::glTexImage2D(
-        /*target*/ (GLenum)process_reg_read(p, Register::r0),
-        /*level*/ (int)process_reg_read(p, Register::r1),
-        /*internalformat*/ (int)process_reg_read(p, Register::r2),
-        /*width*/ (int)process_stack_read(p, -0),
-        /*height*/ (int)process_stack_read(p, -1),
-        /*border*/ (int)process_stack_read(p, -2),
-        /*format*/ (int)process_stack_read(p, -3),
-        /*type*/ (GLenum)process_stack_read(p, -4),
-        /*pixels*/ (const void*)process_mem_target_to_host(p, process_stack_read(p, -5))
-    );
+    auto _0target = (GLenum)process_reg_read_u32(p, Register::r0);
+    auto _1level = (int)process_reg_read_u32(p, Register::r1);
+    auto _2internalformat = (int)process_reg_read_u32(p, Register::r2);
+    auto _3width = (int)process_reg_read_u32(p, Register::r3);
+    auto _4height = (int)process_stack_read(p, 0);
+    auto _5border = (int)process_stack_read(p, 1);
+    auto _6format = (int)process_stack_read(p, 2);
+    auto _7type = (GLenum)process_stack_read(p, 3);
+    auto _8pixels = (const void*)process_mem_target_to_host(p, process_stack_read(p, 4));
 
+    libGLES_CM::glTexImage2D(_0target, _1level, _2internalformat, _3width, _4height, _5border, _6format, _7type, _8pixels);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glTexParameterf_trampoline(Process* p) {
-    libGLES_CM::glTexParameterf();
+libGLES_CM::glTexParameterf();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glBindTexture_trampoline(Process* p) {
-    libGLES_CM::glBindTexture(
-        /*mode*/ (GLenum)process_reg_read(p, Register::r0),
-        /*uint32_t*/ (uint32_t)process_reg_read(p, Register::r1)
-    );
+    auto _0mode = (GLenum)process_reg_read_u32(p, Register::r0);
+    auto _1uint32_t = (uint32_t)process_reg_read_u32(p, Register::r1);
 
+    libGLES_CM::glBindTexture(_0mode, _1uint32_t);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glCompressedTexImage2D_trampoline(Process* p) {
-    libGLES_CM::glCompressedTexImage2D();
+libGLES_CM::glCompressedTexImage2D();
 
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glActiveTexture_trampoline(Process* p) {
-    libGLES_CM::glActiveTexture(
-        /*mode*/ (GLenum)process_reg_read(p, Register::r0)
-    );
+    auto _0mode = (GLenum)process_reg_read_u32(p, Register::r0);
 
+    libGLES_CM::glActiveTexture(_0mode);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glAlphaFunc_trampoline(Process* p) {
-    libGLES_CM::glAlphaFunc(
-        /*func*/ (GLenum)process_reg_read(p, Register::r0),
-        /*ref*/ (float)process_reg_read(p, Register::s0)
-    );
+    auto _0func = (GLenum)process_reg_read_u32(p, Register::r0);
+    auto _1ref = (float)process_reg_read_f32(p, Register::s0);
 
+    libGLES_CM::glAlphaFunc(_0func, _1ref);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glBlendFunc_trampoline(Process* p) {
-    libGLES_CM::glBlendFunc(
-        /*sfactor*/ (GLenum)process_reg_read(p, Register::r0),
-        /*dfactor*/ (GLenum)process_reg_read(p, Register::r1)
-    );
+    auto _0sfactor = (GLenum)process_reg_read_u32(p, Register::r0);
+    auto _1dfactor = (GLenum)process_reg_read_u32(p, Register::r1);
 
+    libGLES_CM::glBlendFunc(_0sfactor, _1dfactor);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 static void glDrawArrays_trampoline(Process* p) {
-    libGLES_CM::glDrawArrays(
-        /*mode*/ (GLenum)process_reg_read(p, Register::r0),
-        /*index*/ (int)process_reg_read(p, Register::r1),
-        /*count*/ (int)process_reg_read(p, Register::r2)
-    );
+    auto _0mode = (GLenum)process_reg_read_u32(p, Register::r0);
+    auto _1index = (int)process_reg_read_u32(p, Register::r1);
+    auto _2count = (int)process_reg_read_u32(p, Register::r2);
 
+    libGLES_CM::glDrawArrays(_0mode, _1index, _2count);
+
+    process_reg_write_u32(p, Register::r0, 0);
 }
 
 struct { const char* name; void* ptr; } static const sym_table[] = {
@@ -1752,20 +1807,20 @@ struct { const char* name; void* ptr; } static const sym_table[] = {
     { "RegisterClassW", (void*)RegisterClassW_trampoline },
     { "CreateWindowExW", (void*)CreateWindowExW_trampoline },
     { "DestroyWindow", (void*)DestroyWindow_trampoline },
+    { "strlen", (void*)strlen_trampoline },
     { "strcpy", (void*)strcpy_trampoline },
+    { "strcmp", (void*)strcmp_trampoline },
+    { "strstr", (void*)strstr_trampoline },
+    { "strncmp", (void*)strncmp_trampoline },
+    { "strchr", (void*)strchr_trampoline },
+    { "strrchr", (void*)strrchr_trampoline },
+    { "wcsrchr", (void*)wcsrchr_trampoline },
     { "__itos", (void*)__itos_trampoline },
     { "__stoi", (void*)__stoi_trampoline },
     { "atoi", (void*)atoi_trampoline },
     { "atof", (void*)atof_trampoline },
-    { "strcmp", (void*)strcmp_trampoline },
-    { "strstr", (void*)strstr_trampoline },
-    { "strncmp", (void*)strncmp_trampoline },
     { "strtoul", (void*)strtoul_trampoline },
-    { "strchr", (void*)strchr_trampoline },
-    { "strrchr", (void*)strrchr_trampoline },
-    { "wcsrchr", (void*)wcsrchr_trampoline },
     { "toupper", (void*)toupper_trampoline },
-    { "strlen", (void*)strlen_trampoline },
     { "__C_specific_uint32_tr", (void*)__C_specific_uint32_tr_trampoline },
     { "_XcptFilter", (void*)_XcptFilter_trampoline },
     { "__C_specific_handler", (void*)__C_specific_handler_trampoline },
