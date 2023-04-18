@@ -27,7 +27,7 @@ struct Object {
         Mutex, Event, File
     };
 
-    uint32_t sentinel = 0xdeadbeef;
+    uint32_t sentinel;
     Type type;
     union {
         struct {
@@ -46,7 +46,9 @@ static std::vector<Object*> objects;
 
 static Object* object_alloc() {
     auto* object = new Object;
+    object->sentinel = 0xdeadbeef;
     objects.push_back(object);
+    print("HostAlloc: %X\n", object);
     return object;
 }
 
@@ -56,23 +58,24 @@ static void object_free(Object* object) {
     delete object;
 }
 
-
 // -----------------------------------------------------------------------------------
 // I make some pretty stupid assumptions about the upper 32 bits of the memory space.
 // It wouldn't change on me between allocations... would it?
-static Object* object_get(uint32_t handle) {
+static Object* object_from_handle(uint32_t handle) {
     const auto upper = uintptr_t(objects.data()) & 0xFFFFFFFF00000000;
     const auto address = upper | static_cast<uint64_t> (handle);
     auto* ptr = reinterpret_cast<void*>(address);
     auto* obj = static_cast<Object*>(ptr);
 
-    // TODO: do this check
-    //obj->sentinal == 0xdeadbeef;
+    if (obj->sentinel != 0xdeadbeef) {
+        print("ooops.. my memory thing doesn't work\n");
+        throw nullptr;
+    }
 
     return obj;
 }
 
-static uint32_t object_get(const Object* object) {
+static uint32_t object_to_handle(const Object* object) {
     return (uint32_t) uintptr_t(object) & 0x00000000FFFFFFFF;
 }
 // -----------------------------------------------------------------------------------
@@ -111,7 +114,7 @@ FUNC uint32_t CreateMutexW(SECURITY_ATTRIBUTES* attributes, bool initialOwner, c
     auto* object = object_alloc();
     object->type = Object::Type::Mutex;
     object->mutex.name = name;
-    return object_get(object);
+    return object_to_handle(object);
 }
 
 FUNC void Sleep(uint32_t time) {
@@ -142,11 +145,10 @@ FUNC uint32_t CreateFileW(const wchar_t* rawPath, uint32_t access, uint32_t shar
         rw += "r";
     if (access & GENERIC_WRITE)
         rw += "w";
-    if (access & TRUNCATE_EXISTING)
-        rw += "+";
+    //if (access & TRUNCATE_EXISTING)
+    //    rw += "+";
 
     rw += "b";
-
 
     snprintf(path, sizeof(path), "%ls", rawPath);
 
@@ -154,7 +156,7 @@ FUNC uint32_t CreateFileW(const wchar_t* rawPath, uint32_t access, uint32_t shar
         auto* object = object_alloc();
         object->file = file;
         printf("OK!\n");
-        return object_get(object);
+        return object_to_handle(object);
     }
 
     printf("Failed!\n");
@@ -162,7 +164,7 @@ FUNC uint32_t CreateFileW(const wchar_t* rawPath, uint32_t access, uint32_t shar
 }
 
 FUNC void CloseHandle(uint32_t handle) {
-    auto* object = object_get(handle);
+    auto* object = object_from_handle(handle);
 
     switch (object->type) {
         case Object::Type::Event: break;
@@ -278,7 +280,7 @@ FUNC int MultiByteToWideChar(uint32_t CodePage, uint32_t dwFlags, const char* lp
     if (cchWideChar == 0) {
         return cbMultiByte;
     }
-    
+
     String::copy(lpWideCharStr, lpMultiByteStr);
     return cbMultiByte;
 }
@@ -321,15 +323,15 @@ FUNC uint32_t GetModuleFileNameW(uint32_t hModule, wchar_t* lpFilename, uint32_t
     if (hModule == 0) {
         char path[255]{};
 
-        snprintf(path, sizeof(path), "%s\\Trailblazer\\Trailblazer.exe", PREEM_HLE_ROM_PATH);
+        snprintf(path, sizeof(path), "C:/games/Trailblazer/Trailblazer.exe");
 
         for (auto& ch : path)
             if (ch == '/')
                 ch = '\\';
 
-        const auto len = String::length(path);
         String::copy(lpFilename, path);
-        return len;
+        print("%ls\n", lpFilename);
+        return String::length(path);
     }
 
     return 0;
@@ -530,12 +532,10 @@ FUNC uint32_t waveOutGetVolume(uint32_t hwo, uint32_t* pdwVolume) {
 
 FUNC uint32_t waveOutSetVolume(uint32_t hwo, uint32_t dwVolume) {
     wave.volume = dwVolume;
-    print("waveOutSetVolume: %08X\n", dwVolume);
     return MMSYS::NOERROR;
 }
 
-
-FUNC int strlen(const char* s) { 
+FUNC int strlen(const char* s) {
     return String::length(s);
 }
 
@@ -547,9 +547,9 @@ FUNC char* strcpy(char* dst, const char* src) {
 FUNC int         strcmp(const char* s1, const char* s2)         { return std::strcmp(s1, s2); }
 FUNC char*       strstr(char* s1, const char* s2)               { return std::strstr(s1, s2); }
 FUNC int         strncmp(const char* s1, const char* s2, int n) { return std::strncmp(s1, s2, n); }
-FUNC char*       strchr(char* s, int n)                         { return std::strchr(s, n); }
+FUNC const char* strchr(char* s, int n)                         { return std::strchr(s, n); }
 
-FUNC char* strrchr(char* s, int c) { 
+FUNC const char* strrchr(const char* s, int c) {
     print("strrchr: %s %c\n", s, c);
 
     if (s) {
@@ -565,8 +565,7 @@ FUNC char* strrchr(char* s, int c) {
     return nullptr;
 }
 
-FUNC wchar_t* wcsrchr(wchar_t* s, wchar_t c)
-{
+FUNC const wchar_t* wcsrchr(const wchar_t* s, wchar_t c) {
     print("wcsrchr: %ls %lc\n", s, c);
 
     if (s) {
@@ -588,7 +587,7 @@ FUNC int         atoi(const char* s)     { return ::atoi(s); }
 FUNC float       atof(const char* s)     { return ::atof(s); }
 FUNC uint32_t    strtoul(const char* s1, void* s2, int n)       { return ::strtoul(s1, (char**)s2, n); }
 
-FUNC int toupper(int c) { 
+FUNC int toupper(int c) {
     if (c >= 97 && c <= 122) {
         return c - 32;
     }
@@ -713,13 +712,7 @@ FUNC int mbstowcs(wchar_t* dst, const char* src, int len) {
 }
 
 FUNC void* memcpy(void* dst, const void* src, int len) {
-    const auto d = (      uint8_t*)dst;
-    const auto s = (const uint8_t*)src;
-    
-    for (int i = 0; i < len; i++)
-        d[i] = s[i];
-
-    return dst;
+    return ::memcpy(dst, src, len);
 }
 
 FUNC void* memset(void* ptr, int value, int num) {
@@ -727,22 +720,22 @@ FUNC void* memset(void* ptr, int value, int num) {
 }
 
 FUNC int fclose(uint32_t handle) {
-    auto* obj = object_get(handle);
+    auto* obj = object_from_handle(handle);
     const auto r = ::fclose(obj->file);
     object_free(obj);
     return r;
 }
 
 FUNC int ftell(uint32_t handle) {
-    return ::ftell(object_get(handle)->file);
+    return ::ftell(object_from_handle(handle)->file);
 }
 
 FUNC int feof(uint32_t handle) {
-    return ::feof(object_get(handle)->file);
+    return ::feof(object_from_handle(handle)->file);
 }
 
 FUNC int fseek(uint32_t handle, int seek, int offset) {
-    return ::fseek(object_get(handle)->file, seek, offset);
+    return ::fseek(object_from_handle(handle)->file, seek, offset);
 }
 
 FUNC int _wfopen(const wchar_t* path, const wchar_t* mode) {
@@ -754,11 +747,11 @@ FUNC int fopen(const char* path, const char* mode) {
 }
 
 FUNC int fread(void* dst, int size, int count, uint32_t handle) {
-    return ::fread(dst, size, count, object_get(handle)->file);
+    return ::fread(dst, size, count, object_from_handle(handle)->file);
 }
 
 FUNC int fwrite(const void* src, int size, int count, uint32_t handle) {
-    return ::fwrite(src, size, count, object_get(handle)->file);
+    return ::fwrite(src, size, count, object_from_handle(handle)->file);
 }
 
 FUNC int rand() {

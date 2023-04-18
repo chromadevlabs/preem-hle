@@ -32,8 +32,7 @@ int main(int argc, const char** argv) {
     disassembler_init();
 
     if (auto* p = process_create(file->data(), file->size())) {
-        process_install_trace_callback(p, trace);
-
+        //process_install_trace_callback(p, trace);
         process_reset(p);
 
         if (! process_run(p)) {

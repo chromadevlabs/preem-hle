@@ -37,9 +37,10 @@ struct Process {
 0x00000000 -> JUMP_TABLE_START <0x00000000 - 0x00001000>
 ------------------------------------*/
 
-static const Range<uint32_t>  stackRange       = { 0x07E00000, 0x08000000 };
-static const Range<uint32_t>  memoryRange      = { 0x00A00000, 0x07DFFFFF };
-static const Range<uint32_t>  jumpTableRange   = { 0x00000000, 0x00001000 };
+static const Range<uint32_t> stackRange     = { 0x07E00000, 0x08000000 };
+static const Range<uint32_t> memoryRange    = { 0x00A00000, 0x07DFFFFF };
+static const Range<uint32_t> exceptionRange = { 0x00001000, 0x00002000 };
+static const Range<uint32_t> jumpTableRange = { 0x00000000, 0x00001000 };
 
 static const char* coredll_get_name_from_ordinal(uint16_t ord) {
     #include "coredll_ordinals.inl"
@@ -64,20 +65,18 @@ static void instruction_trace_callback(uc_engine* uc, uint64_t address, uint64_t
 
 static void jump_table_callback(uc_engine* uc, uint64_t address, uint64_t size, void* user) {
     auto* p = cast<Process*>(user);
-    
+
     const auto index = address / 4;
     const auto f = p->jumpfuncs[index];
     print("apicall: 0x%08X '%s' (%d)\n", address, debug_name_table[index].c_str(), index);
     check(f, "bad link");
     f(p);
 
-    //getchar();
-
     process_reg_write_u32(p, Register::pc, process_reg_read_u32(p, Register::lr));
 }
 
 static bool invalid_mem_callback(uc_engine* uc, uc_mem_type type, uint64_t address, int size, int64_t value, void* user) {
-    
+
     switch (type)
     {
         case UC_MEM_READ_UNMAPPED:   break;
@@ -221,12 +220,6 @@ Process* process_create(const uint8_t* peImage, int peImageSize) {
         const auto tableSize = idir.Size / sizeof(pe::ARM_EXCEPTION_TABLE_ENTRY);
 
         for (const auto& exc : make_view(desc, desc + tableSize)) {
-            print("Exception:\n");
-            print("\tAddress:     0x%08X\n", exc.BeginAddress);
-            print("\tProlog:      0x%X\n",   exc.PrologLength);
-            print("\tFunctionLen: 0x%X\n",   exc.FunctionLength);
-            print("\t32bit:       %s\n",     exc.Is32Bit ? "true" : "false");
-            print("\thandler:     %s\n",     exc.HandlerPresent ? "true" : "false");
         }
     }
 
@@ -440,7 +433,7 @@ void process_panic_dump(const Process* p) {
 
     #undef dump_u32
     #undef dump_f32
-    
+
     const auto sp = process_reg_read_u32(p, Register::sp);
     const auto* stack = (const uint32_t*)process_mem_map(p, sp);
 

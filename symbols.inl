@@ -426,192 +426,6 @@ static void QueryPerformanceCounter_trampoline(Process* p) {
     process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
-static void waveOutGetDevCaps_trampoline(Process* p) {
-    auto _0uDeviceID = (uint32_t)process_reg_read_u32(p, Register::r0);
-    auto _1pwoc = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
-    auto _2cbwoc = (int)process_reg_read_u32(p, Register::r2);
-
-    const auto r = coredll::waveOutGetDevCaps(_0uDeviceID, _1pwoc, _2cbwoc);
-
-    process_reg_write_u32(p, Register::r0, (uint32_t)r);
-}
-
-static void waveOutGetNumDevs_trampoline(Process* p) {
-const auto r = coredll::waveOutGetNumDevs();
-
-    process_reg_write_u32(p, Register::r0, (uint32_t)r);
-}
-
-static void waveOutOpen_trampoline(Process* p) {
-    auto _0phwo = (uint32_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
-    auto _1uDeviceID = (int)process_reg_read_u32(p, Register::r1);
-    auto _2pwfx = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r2));
-    auto _3dwCallback = (uint32_t)process_reg_read_u32(p, Register::r3);
-    auto _4dwCallbackInstance = (uint32_t)process_stack_read(p, 0);
-    auto _5fdwOpen = (uint32_t)process_stack_read(p, 1);
-
-    const auto r = coredll::waveOutOpen(_0phwo, _1uDeviceID, _2pwfx, _3dwCallback, _4dwCallbackInstance, _5fdwOpen);
-
-    process_reg_write_u32(p, Register::r0, (uint32_t)r);
-}
-
-static void waveOutClose_trampoline(Process* p) {
-    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
-
-    const auto r = coredll::waveOutClose(_0hwo);
-
-    process_reg_write_u32(p, Register::r0, (uint32_t)r);
-}
-
-static void waveOutPrepareHeader_trampoline(Process* p) {
-    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
-    auto _1pwh = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
-    auto _2cbwh = (int)process_reg_read_u32(p, Register::r2);
-
-    const auto r = coredll::waveOutPrepareHeader(_0hwo, _1pwh, _2cbwh);
-
-    process_reg_write_u32(p, Register::r0, (uint32_t)r);
-}
-
-static void waveOutUnprepareHeader_trampoline(Process* p) {
-    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
-    auto _1pwh = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
-    auto _2cbwh = (int)process_reg_read_u32(p, Register::r2);
-
-    const auto r = coredll::waveOutUnprepareHeader(_0hwo, _1pwh, _2cbwh);
-
-    process_reg_write_u32(p, Register::r0, (uint32_t)r);
-}
-
-static void waveOutWrite_trampoline(Process* p) {
-    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
-    auto _1pwh = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
-    auto _2cbwh = (uint32_t)process_reg_read_u32(p, Register::r2);
-
-    const auto r = coredll::waveOutWrite(_0hwo, _1pwh, _2cbwh);
-
-    process_reg_write_u32(p, Register::r0, (uint32_t)r);
-}
-
-static void waveOutReset_trampoline(Process* p) {
-    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
-
-    const auto r = coredll::waveOutReset(_0hwo);
-
-    process_reg_write_u32(p, Register::r0, (uint32_t)r);
-}
-
-static void waveOutGetPosition_trampoline(Process* p) {
-    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
-    auto _1pmmt = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
-    auto _2cbmmt = (uint32_t)process_reg_read_u32(p, Register::r2);
-
-    const auto r = coredll::waveOutGetPosition(_0hwo, _1pmmt, _2cbmmt);
-
-    process_reg_write_u32(p, Register::r0, (uint32_t)r);
-}
-
-static void waveInAddBuffer_trampoline(Process* p) {
-    auto _0hwi = (uint32_t)process_reg_read_u32(p, Register::r0);
-    auto _1pwh = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
-    auto _2cbwh = (uint32_t)process_reg_read_u32(p, Register::r2);
-
-    const auto r = coredll::waveInAddBuffer(_0hwi, _1pwh, _2cbwh);
-
-    process_reg_write_u32(p, Register::r0, (uint32_t)r);
-}
-
-static void waveInPrepareHeader_trampoline(Process* p) {
-    auto _0hwi = (uint32_t)process_reg_read_u32(p, Register::r0);
-    auto _1pwh = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
-    auto _2cbwh = (uint32_t)process_reg_read_u32(p, Register::r2);
-
-    const auto r = coredll::waveInPrepareHeader(_0hwi, _1pwh, _2cbwh);
-
-    process_reg_write_u32(p, Register::r0, (uint32_t)r);
-}
-
-static void waveInUnprepareHeader_trampoline(Process* p) {
-    auto _0hwi = (uint32_t)process_reg_read_u32(p, Register::r0);
-    auto _1pwh = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
-    auto _2cbwh = (uint32_t)process_reg_read_u32(p, Register::r2);
-
-    const auto r = coredll::waveInUnprepareHeader(_0hwi, _1pwh, _2cbwh);
-
-    process_reg_write_u32(p, Register::r0, (uint32_t)r);
-}
-
-static void waveInGetDevCaps_trampoline(Process* p) {
-    auto _0uDeviceID = (uint32_t)process_reg_read_u32(p, Register::r0);
-    auto _1pwic = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
-    auto _2cbwic = (uint32_t)process_reg_read_u32(p, Register::r2);
-
-    const auto r = coredll::waveInGetDevCaps(_0uDeviceID, _1pwic, _2cbwic);
-
-    process_reg_write_u32(p, Register::r0, (uint32_t)r);
-}
-
-static void waveInGetNumDevs_trampoline(Process* p) {
-const auto r = coredll::waveInGetNumDevs();
-
-    process_reg_write_u32(p, Register::r0, (uint32_t)r);
-}
-
-static void waveInStart_trampoline(Process* p) {
-    auto _0hwi = (uint32_t)process_reg_read_u32(p, Register::r0);
-
-    const auto r = coredll::waveInStart(_0hwi);
-
-    process_reg_write_u32(p, Register::r0, (uint32_t)r);
-}
-
-static void waveInOpen_trampoline(Process* p) {
-    auto _0phwi = (uint32_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
-    auto _1uDeviceID = (uint32_t)process_reg_read_u32(p, Register::r1);
-    auto _2pwfx = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r2));
-    auto _3dwCallback = (uint32_t)process_reg_read_u32(p, Register::r3);
-    auto _4dwCallbackInstance = (uint32_t)process_stack_read(p, 0);
-    auto _5fdwOpen = (uint32_t)process_stack_read(p, 1);
-
-    const auto r = coredll::waveInOpen(_0phwi, _1uDeviceID, _2pwfx, _3dwCallback, _4dwCallbackInstance, _5fdwOpen);
-
-    process_reg_write_u32(p, Register::r0, (uint32_t)r);
-}
-
-static void waveInClose_trampoline(Process* p) {
-    auto _0hwi = (uint32_t)process_reg_read_u32(p, Register::r0);
-
-    const auto r = coredll::waveInClose(_0hwi);
-
-    process_reg_write_u32(p, Register::r0, (uint32_t)r);
-}
-
-static void waveInReset_trampoline(Process* p) {
-    auto _0hwi = (uint32_t)process_reg_read_u32(p, Register::r0);
-
-    const auto r = coredll::waveInReset(_0hwi);
-
-    process_reg_write_u32(p, Register::r0, (uint32_t)r);
-}
-
-static void waveOutGetVolume_trampoline(Process* p) {
-    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
-    auto _1pdwVolume = (uint32_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
-
-    const auto r = coredll::waveOutGetVolume(_0hwo, _1pdwVolume);
-
-    process_reg_write_u32(p, Register::r0, (uint32_t)r);
-}
-
-static void waveOutSetVolume_trampoline(Process* p) {
-    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
-    auto _1dwVolume = (uint32_t)process_reg_read_u32(p, Register::r1);
-
-    const auto r = coredll::waveOutSetVolume(_0hwo, _1dwVolume);
-
-    process_reg_write_u32(p, Register::r0, (uint32_t)r);
-}
-
 static void RegisterWindowMessageW_trampoline(Process* p) {
     auto _0string = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
 
@@ -805,6 +619,192 @@ static void DestroyWindow_trampoline(Process* p) {
     process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
+static void waveOutGetDevCaps_trampoline(Process* p) {
+    auto _0uDeviceID = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1pwoc = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2cbwoc = (int)process_reg_read_u32(p, Register::r2);
+
+    const auto r = coredll::waveOutGetDevCaps(_0uDeviceID, _1pwoc, _2cbwoc);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void waveOutGetNumDevs_trampoline(Process* p) {
+const auto r = coredll::waveOutGetNumDevs();
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void waveOutOpen_trampoline(Process* p) {
+    auto _0phwo = (uint32_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1uDeviceID = (int)process_reg_read_u32(p, Register::r1);
+    auto _2pwfx = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r2));
+    auto _3dwCallback = (uint32_t)process_reg_read_u32(p, Register::r3);
+    auto _4dwCallbackInstance = (uint32_t)process_stack_read(p, 0);
+    auto _5fdwOpen = (uint32_t)process_stack_read(p, 1);
+
+    const auto r = coredll::waveOutOpen(_0phwo, _1uDeviceID, _2pwfx, _3dwCallback, _4dwCallbackInstance, _5fdwOpen);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void waveOutClose_trampoline(Process* p) {
+    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
+
+    const auto r = coredll::waveOutClose(_0hwo);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void waveOutPrepareHeader_trampoline(Process* p) {
+    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1pwh = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2cbwh = (int)process_reg_read_u32(p, Register::r2);
+
+    const auto r = coredll::waveOutPrepareHeader(_0hwo, _1pwh, _2cbwh);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void waveOutUnprepareHeader_trampoline(Process* p) {
+    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1pwh = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2cbwh = (int)process_reg_read_u32(p, Register::r2);
+
+    const auto r = coredll::waveOutUnprepareHeader(_0hwo, _1pwh, _2cbwh);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void waveOutWrite_trampoline(Process* p) {
+    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1pwh = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2cbwh = (uint32_t)process_reg_read_u32(p, Register::r2);
+
+    const auto r = coredll::waveOutWrite(_0hwo, _1pwh, _2cbwh);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void waveOutReset_trampoline(Process* p) {
+    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
+
+    const auto r = coredll::waveOutReset(_0hwo);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void waveOutGetPosition_trampoline(Process* p) {
+    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1pmmt = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2cbmmt = (uint32_t)process_reg_read_u32(p, Register::r2);
+
+    const auto r = coredll::waveOutGetPosition(_0hwo, _1pmmt, _2cbmmt);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void waveInAddBuffer_trampoline(Process* p) {
+    auto _0hwi = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1pwh = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2cbwh = (uint32_t)process_reg_read_u32(p, Register::r2);
+
+    const auto r = coredll::waveInAddBuffer(_0hwi, _1pwh, _2cbwh);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void waveInPrepareHeader_trampoline(Process* p) {
+    auto _0hwi = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1pwh = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2cbwh = (uint32_t)process_reg_read_u32(p, Register::r2);
+
+    const auto r = coredll::waveInPrepareHeader(_0hwi, _1pwh, _2cbwh);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void waveInUnprepareHeader_trampoline(Process* p) {
+    auto _0hwi = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1pwh = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2cbwh = (uint32_t)process_reg_read_u32(p, Register::r2);
+
+    const auto r = coredll::waveInUnprepareHeader(_0hwi, _1pwh, _2cbwh);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void waveInGetDevCaps_trampoline(Process* p) {
+    auto _0uDeviceID = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1pwic = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+    auto _2cbwic = (uint32_t)process_reg_read_u32(p, Register::r2);
+
+    const auto r = coredll::waveInGetDevCaps(_0uDeviceID, _1pwic, _2cbwic);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void waveInGetNumDevs_trampoline(Process* p) {
+const auto r = coredll::waveInGetNumDevs();
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void waveInStart_trampoline(Process* p) {
+    auto _0hwi = (uint32_t)process_reg_read_u32(p, Register::r0);
+
+    const auto r = coredll::waveInStart(_0hwi);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void waveInOpen_trampoline(Process* p) {
+    auto _0phwi = (uint32_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _1uDeviceID = (uint32_t)process_reg_read_u32(p, Register::r1);
+    auto _2pwfx = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r2));
+    auto _3dwCallback = (uint32_t)process_reg_read_u32(p, Register::r3);
+    auto _4dwCallbackInstance = (uint32_t)process_stack_read(p, 0);
+    auto _5fdwOpen = (uint32_t)process_stack_read(p, 1);
+
+    const auto r = coredll::waveInOpen(_0phwi, _1uDeviceID, _2pwfx, _3dwCallback, _4dwCallbackInstance, _5fdwOpen);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void waveInClose_trampoline(Process* p) {
+    auto _0hwi = (uint32_t)process_reg_read_u32(p, Register::r0);
+
+    const auto r = coredll::waveInClose(_0hwi);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void waveInReset_trampoline(Process* p) {
+    auto _0hwi = (uint32_t)process_reg_read_u32(p, Register::r0);
+
+    const auto r = coredll::waveInReset(_0hwi);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void waveOutGetVolume_trampoline(Process* p) {
+    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1pdwVolume = (uint32_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r1));
+
+    const auto r = coredll::waveOutGetVolume(_0hwo, _1pdwVolume);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
+static void waveOutSetVolume_trampoline(Process* p) {
+    auto _0hwo = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1dwVolume = (uint32_t)process_reg_read_u32(p, Register::r1);
+
+    const auto r = coredll::waveOutSetVolume(_0hwo, _1dwVolume);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
 static void strlen_trampoline(Process* p) {
     auto _0s = (const char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
 
@@ -860,7 +860,7 @@ static void strchr_trampoline(Process* p) {
 }
 
 static void strrchr_trampoline(Process* p) {
-    auto _0s = (char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _0s = (const char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
     auto _1c = (int)process_reg_read_u32(p, Register::r1);
 
     const auto r = coredll::strrchr(_0s, _1c);
@@ -869,7 +869,7 @@ static void strrchr_trampoline(Process* p) {
 }
 
 static void wcsrchr_trampoline(Process* p) {
-    auto _0s = (wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _0s = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
     auto _1c = (wchar_t)process_reg_read_u32(p, Register::r1);
 
     const auto r = coredll::wcsrchr(_0s, _1c);
@@ -1766,26 +1766,6 @@ struct { const char* name; void* ptr; } static const sym_table[] = {
     { "LeaveCriticalSection", (void*)LeaveCriticalSection_trampoline },
     { "QueryPerformanceFrequency", (void*)QueryPerformanceFrequency_trampoline },
     { "QueryPerformanceCounter", (void*)QueryPerformanceCounter_trampoline },
-    { "waveOutGetDevCaps", (void*)waveOutGetDevCaps_trampoline },
-    { "waveOutGetNumDevs", (void*)waveOutGetNumDevs_trampoline },
-    { "waveOutOpen", (void*)waveOutOpen_trampoline },
-    { "waveOutClose", (void*)waveOutClose_trampoline },
-    { "waveOutPrepareHeader", (void*)waveOutPrepareHeader_trampoline },
-    { "waveOutUnprepareHeader", (void*)waveOutUnprepareHeader_trampoline },
-    { "waveOutWrite", (void*)waveOutWrite_trampoline },
-    { "waveOutReset", (void*)waveOutReset_trampoline },
-    { "waveOutGetPosition", (void*)waveOutGetPosition_trampoline },
-    { "waveInAddBuffer", (void*)waveInAddBuffer_trampoline },
-    { "waveInPrepareHeader", (void*)waveInPrepareHeader_trampoline },
-    { "waveInUnprepareHeader", (void*)waveInUnprepareHeader_trampoline },
-    { "waveInGetDevCaps", (void*)waveInGetDevCaps_trampoline },
-    { "waveInGetNumDevs", (void*)waveInGetNumDevs_trampoline },
-    { "waveInStart", (void*)waveInStart_trampoline },
-    { "waveInOpen", (void*)waveInOpen_trampoline },
-    { "waveInClose", (void*)waveInClose_trampoline },
-    { "waveInReset", (void*)waveInReset_trampoline },
-    { "waveOutGetVolume", (void*)waveOutGetVolume_trampoline },
-    { "waveOutSetVolume", (void*)waveOutSetVolume_trampoline },
     { "RegisterWindowMessageW", (void*)RegisterWindowMessageW_trampoline },
     { "SendMessageW", (void*)SendMessageW_trampoline },
     { "DefWindowProcW", (void*)DefWindowProcW_trampoline },
@@ -1807,6 +1787,26 @@ struct { const char* name; void* ptr; } static const sym_table[] = {
     { "RegisterClassW", (void*)RegisterClassW_trampoline },
     { "CreateWindowExW", (void*)CreateWindowExW_trampoline },
     { "DestroyWindow", (void*)DestroyWindow_trampoline },
+    { "waveOutGetDevCaps", (void*)waveOutGetDevCaps_trampoline },
+    { "waveOutGetNumDevs", (void*)waveOutGetNumDevs_trampoline },
+    { "waveOutOpen", (void*)waveOutOpen_trampoline },
+    { "waveOutClose", (void*)waveOutClose_trampoline },
+    { "waveOutPrepareHeader", (void*)waveOutPrepareHeader_trampoline },
+    { "waveOutUnprepareHeader", (void*)waveOutUnprepareHeader_trampoline },
+    { "waveOutWrite", (void*)waveOutWrite_trampoline },
+    { "waveOutReset", (void*)waveOutReset_trampoline },
+    { "waveOutGetPosition", (void*)waveOutGetPosition_trampoline },
+    { "waveInAddBuffer", (void*)waveInAddBuffer_trampoline },
+    { "waveInPrepareHeader", (void*)waveInPrepareHeader_trampoline },
+    { "waveInUnprepareHeader", (void*)waveInUnprepareHeader_trampoline },
+    { "waveInGetDevCaps", (void*)waveInGetDevCaps_trampoline },
+    { "waveInGetNumDevs", (void*)waveInGetNumDevs_trampoline },
+    { "waveInStart", (void*)waveInStart_trampoline },
+    { "waveInOpen", (void*)waveInOpen_trampoline },
+    { "waveInClose", (void*)waveInClose_trampoline },
+    { "waveInReset", (void*)waveInReset_trampoline },
+    { "waveOutGetVolume", (void*)waveOutGetVolume_trampoline },
+    { "waveOutSetVolume", (void*)waveOutSetVolume_trampoline },
     { "strlen", (void*)strlen_trampoline },
     { "strcpy", (void*)strcpy_trampoline },
     { "strcmp", (void*)strcmp_trampoline },
