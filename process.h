@@ -12,7 +12,7 @@ struct PeInfo {
 enum class Register {
     r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12,
     s0, s1, s2, s3, s4, s5, s6, s7,
-    sp, lr, pc, ip,
+    sp, lr, pc, ip, fp
 };
 
 using process_trace_callback_t = void(*)(Process*, uint32_t);

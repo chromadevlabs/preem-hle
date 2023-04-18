@@ -57,15 +57,14 @@ static std::vector<std::string> debug_name_table;
 // Implemented in symbols.inl
 void* symbol_find(const char*);
 
-static void trace_proxy(uc_engine* uc, uint64_t address, uint64_t size, void* user) {
+static void instruction_trace_callback(uc_engine* uc, uint64_t address, uint64_t size, void* user) {
     auto* p = cast<Process*>(user);
     p->tracecb(p, (uint32_t) address);
 }
 
-static void api_jump_proxy(uc_engine* uc, uint64_t address, uint64_t size, void* user) {
+static void jump_table_callback(uc_engine* uc, uint64_t address, uint64_t size, void* user) {
     auto* p = cast<Process*>(user);
-    check(p, "bad trampoline context");
-
+    
     const auto index = address / 4;
     const auto f = p->jumpfuncs[index];
     print("apicall: 0x%08X '%s' (%d)\n", address, debug_name_table[index].c_str(), index);
@@ -74,8 +73,22 @@ static void api_jump_proxy(uc_engine* uc, uint64_t address, uint64_t size, void*
 
     //getchar();
 
-    // bx lr
     process_reg_write_u32(p, Register::pc, process_reg_read_u32(p, Register::lr));
+}
+
+static bool invalid_mem_callback(uc_engine* uc, uc_mem_type type, uint64_t address, int size, int64_t value, void* user) {
+    
+    switch (type)
+    {
+        case UC_MEM_READ_UNMAPPED:   break;
+        case UC_MEM_WRITE_UNMAPPED:  break;
+        case UC_MEM_FETCH_UNMAPPED:  break;
+        case UC_MEM_WRITE_PROT:      break;
+        case UC_MEM_READ_PROT:       break;
+        case UC_MEM_FETCH_PROT:      break;
+    }
+
+    return false;
 }
 
 static constexpr int uc_reg_map(Register r) {
@@ -107,6 +120,7 @@ static constexpr int uc_reg_map(Register r) {
     case Register::lr:  return UC_ARM_REG_LR;
     case Register::pc:  return UC_ARM_REG_PC;
     case Register::ip:  return UC_ARM_REG_IP;
+    case Register::fp:  return UC_ARM_REG_FP;
     }
 
     check(false, "bad register enum");
@@ -161,48 +175,90 @@ Process* process_create(const uint8_t* peImage, int peImageSize) {
         return p->memory + address;
     };
 
-    // Apply import table fixups. Essentially the run time linker.
-    const auto idir = nt->OptionalHeader.DataDirectory[pe::DirectoryIndex::ImportTable];
-    auto*      desc = cast<pe::IMPORT_DESCRIPTOR*>(ptr(idir.VirtualAddress));
+    {
+        // Apply import table fixups. Essentially the run time linker.
+        const auto idir = nt->OptionalHeader.DataDirectory[pe::DirectoryIndex::ImportTable];
+        auto*      desc = cast<pe::IMPORT_DESCRIPTOR*>(ptr(idir.VirtualAddress));
 
-    auto jumpTableAddressOffset = jumpTableRange.getStart();
+        auto jumpTableAddressOffset = jumpTableRange.getStart();
 
-    while (desc->Name) {
-        const auto moduleName = cast<const char*>(ptr(desc->Name));
-        auto*      thunk      = cast<pe::THUNK_DATA*>(ptr(desc->FirstThunk));
+        while (desc->Name) {
+            const auto moduleName = cast<const char*>(ptr(desc->Name));
+            auto*      thunk      = cast<pe::THUNK_DATA*>(ptr(desc->FirstThunk));
 
-        while (thunk->u1.AddressOfData) {
-            const auto symbolName = [&] {
-                if (thunk->u1.Ordinal & pe::Flag::ImportOrdinal) {
-                    check(std::string_view{moduleName} == "COREDLL.dll", "We don't know about '%s'", moduleName);
-                    return coredll_get_name_from_ordinal(pe::ordinal(thunk->u1.Ordinal));
-                }
+            while (thunk->u1.AddressOfData) {
+                const auto symbolName = [&] {
+                    if (thunk->u1.Ordinal & pe::Flag::ImportOrdinal) {
+                        check(std::string_view{moduleName} == "COREDLL.dll", "We don't know about '%s'", moduleName);
+                        return coredll_get_name_from_ordinal(pe::ordinal(thunk->u1.Ordinal));
+                    }
 
-                return cast<const char*>(ptr(thunk->u1.AddressOfData + 2));
-            }();
+                    return cast<const char*>(ptr(thunk->u1.AddressOfData + 2));
+                }();
 
-            print("Linking [%s][%s]...", moduleName, symbolName);
+                print("Linking [%s][%s]...", moduleName, symbolName);
 
-            auto* s = symbol_find(symbolName);
-            check(s != nullptr, "failed to link");
+                auto* s = symbol_find(symbolName);
+                check(s != nullptr, "failed to link");
 
-            debug_name_table.push_back(symbolName);
-            p->jumpfuncs[jumpTableAddressOffset] = (jump_callback_t)s;
-            thunk->u1.Function = jumpTableAddressOffset * 4;
-            print("OK!! Loaded at offset %d\n", jumpTableAddressOffset);
+                debug_name_table.push_back(symbolName);
+                p->jumpfuncs[jumpTableAddressOffset] = (jump_callback_t)s;
+                thunk->u1.Function = jumpTableAddressOffset * 4;
+                print("OK!! Loaded at offset %d\n", jumpTableAddressOffset);
 
-            jumpTableAddressOffset++;
-            thunk++;
+                jumpTableAddressOffset++;
+                thunk++;
+            }
+
+            desc++;
         }
+    }
 
-        desc++;
+    {
+        // Parse exception table
+        const auto idir      = nt->OptionalHeader.DataDirectory[pe::DirectoryIndex::ExceptionTable];
+        auto*      desc      = cast<pe::ARM_EXCEPTION_TABLE_ENTRY*>(ptr(idir.VirtualAddress));
+        const auto tableSize = idir.Size / sizeof(pe::ARM_EXCEPTION_TABLE_ENTRY);
+
+        for (const auto& exc : make_view(desc, desc + tableSize)) {
+            print("Exception:\n");
+            print("\tAddress:     0x%08X\n", exc.BeginAddress);
+            print("\tProlog:      0x%X\n",   exc.PrologLength);
+            print("\tFunctionLen: 0x%X\n",   exc.FunctionLength);
+            print("\t32bit:       %s\n",     exc.Is32Bit ? "true" : "false");
+            print("\thandler:     %s\n",     exc.HandlerPresent ? "true" : "false");
+        }
     }
 
     auto r = uc_open(uc_arch::UC_ARCH_ARM, uc_mode::UC_MODE_ARM, &p->context);
     check(r == UC_ERR_OK, "failed to init unicorn. %s", uc_strerror(r));
 
-    r = uc_mem_map_ptr(p->context, p->imagebase, mb(128), UC_PROT_ALL, p->memory);
+    r = uc_mem_map_ptr(p->context, p->imagebase, mb(128), UC_PROT_NONE, p->memory);
     check(r == UC_ERR_OK, "failed to map process memory. %s", uc_strerror(r));
+
+    // Apply memory protection flags
+    for (const auto& s : sections) {
+        uint32_t protFlag = UC_PROT_NONE;
+
+        if ((s.Characteristics & pe::SectionFlags::memoryExec) != 0) {
+            protFlag |= UC_PROT_EXEC;
+        }
+        if ((s.Characteristics & pe::SectionFlags::memoryRead) != 0) {
+            protFlag |= UC_PROT_READ;
+        }
+        if ((s.Characteristics & pe::SectionFlags::memoryWrite) != 0) {
+            protFlag |= UC_PROT_WRITE;
+        }
+
+        size_t pageAlign = 0;
+        uc_query(p->context, UC_QUERY_PAGE_SIZE, &pageAlign);
+        const auto alignedSize = align<uint32_t>(s.Misc.VirtualSize, pageAlign);
+        r = uc_mem_protect(p->context, p->imagebase + s.VirtualAddress, alignedSize, protFlag);
+        check(r == UC_ERR_OK, "failed to protect section memory flags: %s", uc_strerror(r));
+    }
+
+    uc_mem_protect(p->context, stackRange.getStart(), stackRange.length(), UC_PROT_READ | UC_PROT_WRITE);
+    check(r == UC_ERR_OK, "failed to protect stack memory", uc_strerror(r));
 
     // Jump table is how we translate target API calls into Host calls.
     // We protect the whole page to trigger a callback when the table is touched.
@@ -210,8 +266,13 @@ Process* process_create(const uint8_t* peImage, int peImageSize) {
     check(r == UC_ERR_OK, "failed to map jump table. %s", uc_strerror(r));
 
     uc_hook hook = 0;
-    r = uc_hook_add(p->context, &hook, UC_HOOK_CODE, (void*)api_jump_proxy, p.get(), jumpTableRange.getStart(), jumpTableRange.length());
+    r = uc_hook_add(p->context, &hook, UC_HOOK_CODE, (void*)jump_table_callback, p.get(), jumpTableRange.getStart(), jumpTableRange.length());
     check(r == UC_ERR_OK, "bad api hook install: %s\n", uc_strerror(r));
+    p->hooks.push_back(hook);
+
+    hook = 0;
+    r = uc_hook_add(p->context, &hook, UC_HOOK_MEM_INVALID, (void*)invalid_mem_callback, p.get(), 0, 0xFFFFFFFF);
+    check(r == UC_ERR_OK, "bad memory hook %s\n", uc_strerror(r));
     p->hooks.push_back(hook);
 
     return p.release();
@@ -237,7 +298,7 @@ const uint8_t* process_mem_map(const Process* p, uint32_t addr) {
 void process_install_trace_callback(Process* p, process_trace_callback_t&& callback) {
     uc_hook hook = 0;
 
-    const auto r = uc_hook_add(p->context, &hook, UC_HOOK_CODE, (void*)trace_proxy, p, p->imagebase, p->imagebase + mb(128));
+    const auto r = uc_hook_add(p->context, &hook, UC_HOOK_CODE, (void*)instruction_trace_callback, p, p->imagebase, p->imagebase + mb(128));
     check(r == UC_ERR_OK, "bad hook install: %s\n", uc_strerror(r));
 
     p->hooks.push_back(hook);
@@ -328,6 +389,7 @@ void process_reset(Process* p) {
 
     // I assume the stack grows down???
     process_reg_write_u32(p, Register::sp, stackRange.getEnd() - 4);
+    process_reg_write_u32(p, Register::fp, stackRange.getEnd() - 4);
     process_reg_write_u32(p, Register::pc, p->imagebase + p->entrypoint);
 }
 
@@ -374,7 +436,27 @@ void process_panic_dump(const Process* p) {
     dump_u32(ip);
     dump_u32(lr);
     dump_u32(pc);
+    dump_u32(fp);
 
     #undef dump_u32
     #undef dump_f32
+    
+    const auto sp = process_reg_read_u32(p, Register::sp);
+    const auto* stack = (const uint32_t*)process_mem_map(p, sp);
+
+    stackRange.getEnd();
+
+    for (int i = 0; i < 8; i++) {
+        const auto index = 8 - i;
+        print("   SP-%d [0x%08X]\n", index, stack[-index]);
+    }
+
+        print("-> SP   [0x%08X]\n", stack[0]);
+
+    for (int i = 1; i < 8; i++) {
+        const auto index = i;
+        print("   SP+%d [0x%08X]\n", index, stack[index]);
+    }
+
+    file_save("dump.bin", p->memory, mb(128));
 }

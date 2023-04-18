@@ -25,9 +25,9 @@ optional<vector<uint8_t>> file_load(const string_view& path) {
     return {};
 }
 
-bool file_save(const string_view& path, const vector<uint8_t>& data) {
+bool file_save(const string_view& path, const void* data, int len) {
     if (auto file = ptr(fopen(path.data(), "wb"), closer)) {
-        fwrite(data.data(), 1, data.size(), file.get());
+        fwrite(data, 1, len, file.get());
         return true;
     }
 

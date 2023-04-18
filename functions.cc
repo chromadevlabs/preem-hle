@@ -1,8 +1,9 @@
-#include <cstdint>
-#include <cstring>
-#include <vector>
-#include <cmath>
-#include <cstdio>
+#include <cstdint>  // uint*
+#include <cstring>  // memcpy, strlen etc
+#include <string>   // std::string
+#include <vector>   // std::vector
+#include <cmath>    // sin/cos etc
+#include <cstdio>   // sprintf
 
 constexpr uint32_t INVALID_HANDLE_VALUE = 0xffffffff;
 
@@ -10,7 +11,7 @@ using GLenum = unsigned int;
 
 int print(const char* format, ...);
 
-// All functions have to be declared on a single line because I'm lazy and the python parser will break.
+// All functions have to be declared on a single line because I'm lazy and the python parser will break otherwise.
 #define FUNC
 
 #pragma pack(push, 1)
@@ -41,8 +42,6 @@ struct Object {
     };
 };
 
-// I make some pretty stupid assumptions about the upper 32 bits of the memory space.
-// It wouldn't change on me between allocations... would it?
 static std::vector<Object*> objects;
 
 static Object* object_alloc() {
@@ -57,6 +56,10 @@ static void object_free(Object* object) {
     delete object;
 }
 
+
+// -----------------------------------------------------------------------------------
+// I make some pretty stupid assumptions about the upper 32 bits of the memory space.
+// It wouldn't change on me between allocations... would it?
 static Object* object_get(uint32_t handle) {
     const auto upper = uintptr_t(objects.data()) & 0xFFFFFFFF00000000;
     const auto address = upper | static_cast<uint64_t> (handle);
@@ -72,6 +75,7 @@ static Object* object_get(uint32_t handle) {
 static uint32_t object_get(const Object* object) {
     return (uint32_t) uintptr_t(object) & 0x00000000FFFFFFFF;
 }
+// -----------------------------------------------------------------------------------
 
 struct String {
     template<typename CharType>
@@ -84,11 +88,12 @@ struct String {
         return static_cast<size_t>(str - start);
     }
 
-    template<typename CharType>
-    static constexpr CharType* copy(CharType* dst, const CharType* src) {
-        const auto len = length(src) + 1;
-        ::memcpy(dst, src, len * sizeof(CharType));
-        return dst;
+    template<typename CharTypeA, typename CharTypeB>
+    static constexpr void copy(CharTypeA* dst, const CharTypeB* src) {
+        while (*src)
+            *dst++ = (CharTypeA)*src++;
+
+        *dst = '\0';
     }
 };
 
@@ -130,26 +135,22 @@ FUNC uint32_t CreateFileW(const wchar_t* rawPath, uint32_t access, uint32_t shar
     constexpr auto GENERIC_READ       = 0x80000000;
     constexpr auto GENERIC_WRITE      = 0x40000000;
 
-    std::vector<char> rw;
-    
-    if (access == GENERIC_READ)
-        rw.push_back('r');
-    if (access == GENERIC_WRITE)
-        rw.push_back('w');
-    if (create == TRUNCATE_EXISTING)
-        rw.push_back('+');
-
-    rw.push_back('b');
-    rw.push_back('\0');
-
-    // MAX_PATH???
+    std::string rw;
     char path[255]{};
-    
-    snprintf(path, sizeof(path), "%s\\Trailblazer\\%ls", PREEM_HLE_ROM_PATH, rawPath);
-    print("CreateFileW: %ls (%s)...", path, rw.data());
 
-    // Apparently fopen on mac will handle wide char strings???
-    if (auto* file = ::fopen(path, rw.data())) {
+    if (access & GENERIC_READ)
+        rw += "r";
+    if (access & GENERIC_WRITE)
+        rw += "w";
+    if (access & TRUNCATE_EXISTING)
+        rw += "+";
+
+    rw += "b";
+
+
+    snprintf(path, sizeof(path), "%ls", rawPath);
+
+    if (auto* file = ::fopen(path, rw.c_str())) {
         auto* object = object_alloc();
         object->file = file;
         printf("OK!\n");
@@ -266,6 +267,8 @@ FUNC bool CreateDirectoryW(const wchar_t* lpPathName, void* lpSecurityAttributes
 }
 
 FUNC int MultiByteToWideChar(uint32_t CodePage, uint32_t dwFlags, const char* lpMultiByteStr, int cbMultiByte, wchar_t* lpWideCharStr, int cchWideChar) {
+    print("MultiByteToWideChar: %s\n", lpMultiByteStr);
+
     if (cbMultiByte == 0)
         return 0;
 
@@ -276,16 +279,12 @@ FUNC int MultiByteToWideChar(uint32_t CodePage, uint32_t dwFlags, const char* lp
         return cbMultiByte;
     }
     
-    const auto len = cbMultiByte + 1;
-    for (int i = 0; i < len; i++) {
-        lpWideCharStr[i] = lpMultiByteStr[i];
-    }
-
-    return len;
+    String::copy(lpWideCharStr, lpMultiByteStr);
+    return cbMultiByte;
 }
 
 FUNC int WideCharToMultiByte(uint32_t CodePage, uint32_t dwFlags, const wchar_t* lpWideCharStr, int cchWideChar, char* lpMultiByteStr, int cbMultiByte, const char* lpDefaultChar, bool* lpUsedDefaultChar) {
-    print("MultiByteToWideChar: %s\n", lpMultiByteStr);
+    print("WideCharToMultiByte: %ls\n", lpWideCharStr);
 
     if (cchWideChar == 0)
         return 0;
@@ -297,12 +296,8 @@ FUNC int WideCharToMultiByte(uint32_t CodePage, uint32_t dwFlags, const wchar_t*
         return cchWideChar;
     }
 
-    const auto len = cchWideChar + 1;
-    for (int i = 0; i < len; i++) {
-        lpMultiByteStr[i] = lpWideCharStr[i];
-    }
-
-    return len;
+    String::copy(lpMultiByteStr, lpWideCharStr);
+    return cchWideChar;
 }
 
 
@@ -324,9 +319,16 @@ FUNC uint32_t FindFirstFileW(const wchar_t* lpFileName, void* lpFindFileData) {
 
 FUNC uint32_t GetModuleFileNameW(uint32_t hModule, wchar_t* lpFilename, uint32_t nSize) {
     if (hModule == 0) {
-        constexpr auto str = L"\\trailblazer.exe";
-        constexpr auto len = String::length(str) + 1;
-        String::copy(lpFilename, str);
+        char path[255]{};
+
+        snprintf(path, sizeof(path), "%s\\Trailblazer\\Trailblazer.exe", PREEM_HLE_ROM_PATH);
+
+        for (auto& ch : path)
+            if (ch == '/')
+                ch = '\\';
+
+        const auto len = String::length(path);
+        String::copy(lpFilename, path);
         return len;
     }
 
@@ -354,6 +356,90 @@ FUNC bool QueryPerformanceFrequency(void* lpFrequency) {
 }
 
 FUNC bool QueryPerformanceCounter(void* lpPerformanceCount) {
+    return false;
+}
+
+FUNC uint32_t RegisterWindowMessageW(const wchar_t* string) {
+    return 0;
+}
+
+FUNC uint32_t SendMessageW(uint32_t hwnd, uint32_t msg, uint32_t wparam, uint32_t lparam) {
+    return 0;
+}
+
+FUNC uint32_t DefWindowProcW(uint32_t hwnd, uint32_t msg, uint32_t wparam, uint32_t lparam) {
+    return 0;
+}
+
+FUNC uint32_t DispatchMessageW(const void* msg) {
+    return 0;
+}
+
+FUNC bool TranslateMessage(const void* msg) {
+    return false;
+}
+
+FUNC bool PeekMessageW(void* msg, uint32_t hwnd, int min, int max, int mode) {
+    return false;
+}
+
+FUNC void PostQuitMessage(int code) {
+
+}
+
+FUNC int ShowCursor(bool show) {
+    return 0;
+}
+
+FUNC uint32_t SetCursor(uint32_t cursor) {
+    return 0;
+}
+
+FUNC bool EndPaint(uint32_t hwnd, const void* paint) {
+    return false;
+}
+
+FUNC uint32_t BeginPaint(uint32_t hwnd, void* paint) {
+    return 0;
+}
+
+FUNC uint32_t GetStockObject(uint32_t) {
+    return 0;
+}
+
+FUNC uint32_t LoadCursorW(void* instance, const wchar_t* name) {
+    return 0;
+}
+
+FUNC bool SetForegroundWindow(uint32_t hwnd) {
+    return false;
+}
+
+FUNC bool BringWindowToTop(uint32_t hwnd) {
+    return false;
+}
+
+FUNC uint32_t SetFocus(uint32_t hwnd) {
+    return hwnd;
+}
+
+FUNC bool UpdateWindow(uint32_t hwnd) {
+    return false;
+}
+
+FUNC bool ShowWindow(uint32_t hwnd, int show) {
+    return false;
+}
+
+FUNC bool RegisterClassW(const void* wnd) {
+    return false;
+}
+
+FUNC bool CreateWindowExW(uint32_t dwExStyle, const wchar_t* lpClassName, const wchar_t* lpWindowName, uint32_t dwStyle, int X, int Y, int nWidth, int nHeight, uint32_t hWndParent, uint32_t hMenu, void* hInstance, void* lpParam) {
+    return false;
+}
+
+FUNC bool DestroyWindow(uint32_t uint32_t) {
     return false;
 }
 
@@ -448,112 +534,47 @@ FUNC uint32_t waveOutSetVolume(uint32_t hwo, uint32_t dwVolume) {
     return MMSYS::NOERROR;
 }
 
-FUNC uint32_t RegisterWindowMessageW(const wchar_t* string) {
-    return 0;
-}
-
-FUNC uint32_t SendMessageW(uint32_t hwnd, uint32_t msg, uint32_t wparam, uint32_t lparam) {
-    return 0;
-}
-
-FUNC uint32_t DefWindowProcW(uint32_t hwnd, uint32_t msg, uint32_t wparam, uint32_t lparam) {
-    return 0;
-}
-
-FUNC uint32_t DispatchMessageW(const void* msg) {
-    return 0;
-}
-
-FUNC bool TranslateMessage(const void* msg) {
-    return false;
-}
-
-FUNC bool PeekMessageW(void* msg, uint32_t hwnd, int min, int max, int mode) {
-    return false;
-}
-
-FUNC void PostQuitMessage(int code) {
-
-}
-
-FUNC int ShowCursor(bool show) {
-    return 0;
-}
-
-FUNC uint32_t SetCursor(uint32_t cursor) {
-    return 0;
-}
-
-FUNC bool EndPaint(uint32_t hwnd, const void* paint) {
-    return false;
-}
-
-FUNC uint32_t BeginPaint(uint32_t hwnd, void* paint) {
-    return 0;
-}
-
-FUNC uint32_t GetStockObject(uint32_t) {
-    return 0;
-}
-
-FUNC uint32_t LoadCursorW(void* instance, const wchar_t* name) {
-    return 0;
-}
-
-FUNC bool SetForegroundWindow(uint32_t hwnd) {
-    return false;
-}
-
-FUNC bool BringWindowToTop(uint32_t hwnd) {
-    return false;
-}
-
-FUNC uint32_t SetFocus(uint32_t hwnd) {
-    return hwnd;
-}
-
-FUNC bool UpdateWindow(uint32_t hwnd) {
-    return false;
-}
-
-FUNC bool ShowWindow(uint32_t hwnd, int show) {
-    return false;
-}
-
-FUNC bool RegisterClassW(const void* wnd) {
-    return false;
-}
-
-FUNC bool CreateWindowExW(uint32_t dwExStyle, const wchar_t* lpClassName, const wchar_t* lpWindowName, uint32_t dwStyle, int X, int Y, int nWidth, int nHeight, uint32_t hWndParent, uint32_t hMenu, void* hInstance, void* lpParam) {
-    return false;
-}
-
-FUNC bool DestroyWindow(uint32_t uint32_t) {
-    return false;
-}
 
 FUNC int strlen(const char* s) { 
     return String::length(s);
 }
 
 FUNC char* strcpy(char* dst, const char* src) {
-    return String::copy(dst, src);
+    String::copy(dst, src);
+    return dst;
 }
 
 FUNC int         strcmp(const char* s1, const char* s2)         { return std::strcmp(s1, s2); }
 FUNC char*       strstr(char* s1, const char* s2)               { return std::strstr(s1, s2); }
 FUNC int         strncmp(const char* s1, const char* s2, int n) { return std::strncmp(s1, s2, n); }
 FUNC char*       strchr(char* s, int n)                         { return std::strchr(s, n); }
-FUNC char*       strrchr(char* s, int n)                        { return std::strrchr(s, n); }
 
-FUNC wchar_t*    wcsrchr(wchar_t* s, wchar_t c)
-{
+FUNC char* strrchr(char* s, int c) { 
+    print("strrchr: %s %c\n", s, c);
+
     if (s) {
         const auto start = s;
         s += String::length(s);
 
         while (s > start) {
-            if (*s-- == c)
+            if (*--s == c)
+                return s;
+        }
+    }
+
+    return nullptr;
+}
+
+FUNC wchar_t* wcsrchr(wchar_t* s, wchar_t c)
+{
+    print("wcsrchr: %ls %lc\n", s, c);
+
+    if (s) {
+        const auto start = s;
+        s += String::length(s);
+
+        while (s > start) {
+            if (*--s == c)
                 return s;
         }
     }
@@ -692,7 +713,13 @@ FUNC int mbstowcs(wchar_t* dst, const char* src, int len) {
 }
 
 FUNC void* memcpy(void* dst, const void* src, int len) {
-    return ::memcpy(dst, src, len);
+    const auto d = (      uint8_t*)dst;
+    const auto s = (const uint8_t*)src;
+    
+    for (int i = 0; i < len; i++)
+        d[i] = s[i];
+
+    return dst;
 }
 
 FUNC void* memset(void* ptr, int value, int num) {

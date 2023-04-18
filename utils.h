@@ -98,4 +98,4 @@ constexpr auto make_view(const ContainerT& cont, size_t offset = 0, size_t len =
 }
 
 optional<vector<uint8_t>> file_load(const string_view& path);
-bool file_save(const string_view& path, const vector<uint8_t>& data);
+bool file_save(const string_view& path, const void* data, int len);

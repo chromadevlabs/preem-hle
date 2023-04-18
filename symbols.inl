@@ -59,7 +59,7 @@ const auto r = coredll::GetLastError();
 }
 
 static void CreateFileW_trampoline(Process* p) {
-    auto _0path = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
+    auto _0rawPath = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
     auto _1access = (uint32_t)process_reg_read_u32(p, Register::r1);
     auto _2share = (uint32_t)process_reg_read_u32(p, Register::r2);
     auto _3attr = (void*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r3));
@@ -67,7 +67,7 @@ static void CreateFileW_trampoline(Process* p) {
     auto _5flags = (uint32_t)process_stack_read(p, 1);
     auto _6temp = (uint32_t)process_stack_read(p, 2);
 
-    const auto r = coredll::CreateFileW(_0path, _1access, _2share, _3attr, _4create, _5flags, _6temp);
+    const auto r = coredll::CreateFileW(_0rawPath, _1access, _2share, _3attr, _4create, _5flags, _6temp);
 
     process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
@@ -319,6 +319,21 @@ static void MultiByteToWideChar_trampoline(Process* p) {
     process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
 
+static void WideCharToMultiByte_trampoline(Process* p) {
+    auto _0CodePage = (uint32_t)process_reg_read_u32(p, Register::r0);
+    auto _1dwFlags = (uint32_t)process_reg_read_u32(p, Register::r1);
+    auto _2lpWideCharStr = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r2));
+    auto _3cchWideChar = (int)process_reg_read_u32(p, Register::r3);
+    auto _4lpMultiByteStr = (char*)process_mem_target_to_host(p, process_stack_read(p, 0));
+    auto _5cbMultiByte = (int)process_stack_read(p, 1);
+    auto _6lpDefaultChar = (const char*)process_mem_target_to_host(p, process_stack_read(p, 2));
+    auto _7lpUsedDefaultChar = (bool*)process_mem_target_to_host(p, process_stack_read(p, 3));
+
+    const auto r = coredll::WideCharToMultiByte(_0CodePage, _1dwFlags, _2lpWideCharStr, _3cchWideChar, _4lpMultiByteStr, _5cbMultiByte, _6lpDefaultChar, _7lpUsedDefaultChar);
+
+    process_reg_write_u32(p, Register::r0, (uint32_t)r);
+}
+
 static void DeleteFileW_trampoline(Process* p) {
     auto _0lpFileName = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
 
@@ -331,21 +346,6 @@ static void FindClose_trampoline(Process* p) {
     auto _0hFindFile = (uint32_t)process_reg_read_u32(p, Register::r0);
 
     const auto r = coredll::FindClose(_0hFindFile);
-
-    process_reg_write_u32(p, Register::r0, (uint32_t)r);
-}
-
-static void WideCharToMultiByte_trampoline(Process* p) {
-    auto _0CodePage = (uint32_t)process_reg_read_u32(p, Register::r0);
-    auto _1dwFlags = (uint32_t)process_reg_read_u32(p, Register::r1);
-    auto _2lpWideCharStr = (const wchar_t*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r2));
-    auto _3cchWideChar = (int)process_reg_read_u32(p, Register::r3);
-    auto _4lpMultiByteStr = (char*)process_mem_target_to_host(p, process_stack_read(p, 0));
-    auto _5cbMultiByte = (int)process_stack_read(p, 1);
-    auto _6lpDefaultChar = (const char*)process_mem_target_to_host(p, process_stack_read(p, 2));
-    auto _7lpUsedDefaultChar = (bool*)process_mem_target_to_host(p, process_stack_read(p, 3));
-
-    const auto r = coredll::WideCharToMultiByte(_0CodePage, _1dwFlags, _2lpWideCharStr, _3cchWideChar, _4lpMultiByteStr, _5cbMultiByte, _6lpDefaultChar, _7lpUsedDefaultChar);
 
     process_reg_write_u32(p, Register::r0, (uint32_t)r);
 }
@@ -861,9 +861,9 @@ static void strchr_trampoline(Process* p) {
 
 static void strrchr_trampoline(Process* p) {
     auto _0s = (char*)process_mem_target_to_host(p, process_reg_read_u32(p, Register::r0));
-    auto _1n = (int)process_reg_read_u32(p, Register::r1);
+    auto _1c = (int)process_reg_read_u32(p, Register::r1);
 
-    const auto r = coredll::strrchr(_0s, _1n);
+    const auto r = coredll::strrchr(_0s, _1c);
 
     process_reg_write_u32(p, Register::r0, process_mem_host_to_target(p, (void*)r));
 }
@@ -1754,9 +1754,9 @@ struct { const char* name; void* ptr; } static const sym_table[] = {
     { "GetLocalTime", (void*)GetLocalTime_trampoline },
     { "CreateDirectoryW", (void*)CreateDirectoryW_trampoline },
     { "MultiByteToWideChar", (void*)MultiByteToWideChar_trampoline },
+    { "WideCharToMultiByte", (void*)WideCharToMultiByte_trampoline },
     { "DeleteFileW", (void*)DeleteFileW_trampoline },
     { "FindClose", (void*)FindClose_trampoline },
-    { "WideCharToMultiByte", (void*)WideCharToMultiByte_trampoline },
     { "FindNextFileW", (void*)FindNextFileW_trampoline },
     { "FindFirstFileW", (void*)FindFirstFileW_trampoline },
     { "GetModuleFileNameW", (void*)GetModuleFileNameW_trampoline },
