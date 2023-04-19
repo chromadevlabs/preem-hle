@@ -4,25 +4,19 @@
 
 struct Process;
 
-struct PeInfo {
-    uint32_t imagebase;
-    uint32_t entrypoint;
-};
-
 enum class Register {
     r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12,
     s0, s1, s2, s3, s4, s5, s6, s7,
-    sp, lr, pc, ip, fp
+    sp, lr, pc, ip, fp,
+    cpsr, fpscr
 };
 
 using process_trace_callback_t = void(*)(Process*, uint32_t);
 
-Process* process_create(const uint8_t* peImage, int imageSize);
+Process* process_create(const uint8_t* peImage, size_t imageSize);
 void     process_destroy(Process*);
 
 void     process_install_trace_callback(Process* p, process_trace_callback_t&& callback);
-
-PeInfo   process_pe_get(const Process* p);
 
 uint32_t process_reg_read_u32(const Process* p, Register reg);
 float    process_reg_read_f32(const Process* p, Register reg);

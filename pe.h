@@ -151,42 +151,6 @@ struct THUNK_DATA {
         uint32_t ForwarderString;
     } u1;
 };
-
-struct ARM_EXCEPTION_TABLE_ENTRY {
-    uint32_t BeginAddress;
-    
-    union {
-        struct {
-            uint32_t PrologLength   : 8;
-            uint32_t FunctionLength : 22;
-            uint32_t Is32Bit        : 1;
-            uint32_t HandlerPresent : 1;
-        };
-
-        uint32_t Flags;
-    };
-};
-
-/*struct ARM_EXCEPTION_FUNCTION_ENTRY {
-    uint32_t BeginAddress;
-    
-    union {
-        struct {
-            uint32_t Flag           : 2;
-            uint32_t FunctionLength : 11;
-            uint32_t Ret            : 2;
-            uint32_t H              : 1;
-            uint32_t Reg            : 3;
-            uint32_t R              : 1;
-            uint32_t L              : 1;
-            uint32_t C              : 1;
-            uint32_t StackAdjust    : 10;
-        };
-
-        uint32_t UnwindData;
-    };
-};*/
-
 #pragma pack(pop)
 
 constexpr auto ordinal(uint32_t value) {
