@@ -91,7 +91,7 @@ static void jump_table_callback(uc_engine* uc, uint64_t address, uint64_t size, 
 
     // Exceptions
     if (ranges::exceptionTable.contains(address)) {
-        DebugBreak();
+        BREAK();
     }
 }
 
@@ -151,7 +151,7 @@ static constexpr int uc_reg_map(Register r) {
 
 Process* process_create(const uint8_t* peImage, size_t peImageSize) {
     std::unique_ptr<Process> p { new Process{} };
-    
+
     // Map PE into memory
     const auto* dos = cast<const pe::DOS_HEADER*>(peImage);
     const auto* nt  = cast<const pe::NT_HEADER*>(peImage + dos->e_lfanew);
@@ -171,7 +171,7 @@ Process* process_create(const uint8_t* peImage, size_t peImageSize) {
     p->imagebase  = nt->OptionalHeader.ImageBase;
     p->entrypoint = nt->OptionalHeader.AddressOfEntryPoint;
 
-    check(nt->OptionalHeader.DataDirectory[pe::DirectoryIndex::BaseRelocTable].Size == 0, 
+    check(nt->OptionalHeader.DataDirectory[pe::DirectoryIndex::BaseRelocTable].Size == 0,
           "Erghhh I dont want to support relocations yet");
 
     auto* base = p->memory;
@@ -251,7 +251,7 @@ Process* process_create(const uint8_t* peImage, size_t peImageSize) {
             };
 
             uint32_t FunctionStartRVA;
-            
+
             union {
                 uint32_t Data;
 
@@ -280,7 +280,7 @@ Process* process_create(const uint8_t* peImage, size_t peImageSize) {
 
         // TODO: Check for CODE bit flag in section characteristics
         auto exceptionTableOffset = ranges::exceptionTable.getStart();
-        
+
         for (const auto& r : make_view(desc, desc + tableSize)) {
             const auto patchAddress = r.FunctionStartRVA & 0xFFFFFFFE;
 
@@ -293,7 +293,7 @@ Process* process_create(const uint8_t* peImage, size_t peImageSize) {
             else {
                 // Exception Information RVA
                 check(false, "weird exceptions detected");
-                DebugBreak();
+                BREAK();
             }
         }
     }
