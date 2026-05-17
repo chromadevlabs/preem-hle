@@ -5,38 +5,37 @@
 #include <string_view>  // std::string_view
 #include <vector>
 
-using std::optional;
-using std::string_view;
-using std::string;
-using std::vector;
-using std::make_optional;
-
 #if WIN32
- #define BREAK()             __debugbreak()
+    #define BREAK()             __debugbreak()
 #else // we assume macos for now
- #define BREAK()             __builtin_trap()
+    #define BREAK()             __builtin_trap()
 #endif
 
 #define cast                reinterpret_cast
-#define check(expr, ...)    if (!bool(expr)) { print("ASSERT - %s[%d]: ", __FILE__, __LINE__);    \
-                                               print(__VA_ARGS__); print("\n"); BREAK(); }
+#define check(expr, ...)    if (!bool(expr)) { printf("ASSERT - %s[%d]: ", __FILE__, __LINE__);    \
+                                               printf(__VA_ARGS__); printf("\n"); BREAK(); }
 
-int print(const char* format, ...);
+auto debug_hex_dump(const void* in, size_t len) -> void;
 
-template<typename T>
-constexpr auto kb(T v) { return v * (T)1024; }
+template <typename T>
+static constexpr auto kb(T v) -> T { return v * (T) 1024; }
 
-template<typename T>
-constexpr auto mb(T v) { return kb(v) * (T)1024; }
+template <typename T>
+static constexpr auto mb(T v) -> T { return kb(v) * (T) 1024; }
 
-template<typename T>
-constexpr T align(T value, T alignment) {
+template <typename T>
+static constexpr auto align(T value, T alignment) -> T {
     return (value + alignment - 1) & ~(alignment - 1);
+}
+
+template <typename T>
+static constexpr auto isBitSet(T value, unsigned int bit) -> bool {
+    return (value & bit) != 0;
 }
 
 struct StringHash {
     constexpr StringHash() = default;
-    constexpr StringHash(const string_view& view) : StringHash(view.data()) {}
+    constexpr StringHash(const std::string_view& view) : StringHash(view.data()) {}
     constexpr StringHash(const char* string) : value(hash(string)) {}
 
     constexpr auto     empty() const { return value == 0; }
@@ -62,9 +61,24 @@ struct Range {
     constexpr auto getStart() const { return begin; }
     constexpr auto   getEnd() const { return end; }
 
+    template <typename RT>
+    constexpr auto to() -> Range<RT> { return { (RT) begin, (RT) end }; }
+
+    constexpr auto operator==(Range other) const -> bool { return begin == other.begin && end == other.end; }
+    constexpr auto operator!=(Range other) const -> bool { return ! (*this == other); }
+
+    static auto fromOffsetAndLength(T offset, T length) {
+        return Range{ offset, offset + length };
+    }
+
 private:
     T begin, end;
 };
+
+template <typename T>
+static auto rangeFromLength(T start, size_t length) {
+    return Range<T> { start, (T) start + length };
+}
 
 template<typename T>
 struct View {
@@ -97,5 +111,5 @@ constexpr auto make_view(const ContainerT& cont, size_t offset = 0, size_t len =
     return make_view(std::cbegin(cont) + offset, std::cbegin(cont) + offset + len);
 }
 
-optional<vector<uint8_t>> file_load(const string_view& path);
-bool file_save(const string_view& path, const void* data, int len);
+std::optional<std::vector<uint8_t>> file_load(const std::string_view& path);
+bool file_save(const std::string_view& path, const void* data, int len);

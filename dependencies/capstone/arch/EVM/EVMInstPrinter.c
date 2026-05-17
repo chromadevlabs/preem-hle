@@ -4,10 +4,9 @@
 #include "EVMInstPrinter.h"
 #include "EVMMapping.h"
 
-
 void EVM_printInst(MCInst *MI, struct SStream *O, void *PrinterInfo)
 {
-	SStream_concat(O, EVM_insn_name((csh)MI->csh, MI->Opcode));
+	SStream_concat0(O, EVM_insn_name((csh)MI->csh, MI->Opcode));
 
 	if (MI->Opcode >= EVM_INS_PUSH1 && MI->Opcode <= EVM_INS_PUSH32) {
 		unsigned int i;

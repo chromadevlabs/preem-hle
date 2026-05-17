@@ -158,7 +158,7 @@ constexpr auto ordinal(uint32_t value) {
 }
 
 constexpr auto relativeToSection(const View<SECTION_HEADER>& sections, uint32_t rva) {
-    optional<SECTION_HEADER> sec;
+    std::optional<SECTION_HEADER> sec;
 
     for (const auto& s : sections) {
         const auto sva = s.VirtualAddress;
@@ -172,20 +172,20 @@ constexpr auto relativeToSection(const View<SECTION_HEADER>& sections, uint32_t 
 }
 
 constexpr auto relativeToVirtual(const View<SECTION_HEADER>& sections, uint32_t rva) {
-    optional<uint32_t> va;
+    std::optional<uint32_t> va;
 
     if (auto s = relativeToSection(sections, rva)) {
-        va = make_optional(rva - s->VirtualAddress);
+        va = std::make_optional(rva - s->VirtualAddress);
     }
 
     return va;
 }
 
 constexpr auto relativeToOffset(const View<SECTION_HEADER>& sections, uint32_t rva) {
-    optional<uint32_t> offset;
+    std::optional<uint32_t> offset;
 
     if (auto s = relativeToSection(sections, rva)) {
-        offset = make_optional(rva - s->VirtualAddress + s->PointerToRawData);
+        offset = std::make_optional(rva - s->VirtualAddress + s->PointerToRawData);
     }
 
     return offset;

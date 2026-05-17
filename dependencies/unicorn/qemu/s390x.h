@@ -4,6 +4,11 @@
 #ifndef UNICORN_ARCH_POSTFIX
 #define UNICORN_ARCH_POSTFIX _s390x
 #endif
+#define gen_helper_check_exit_request gen_helper_check_exit_request_s390x
+#define unicorn_fill_tlb unicorn_fill_tlb_s390x
+#define reg_read reg_read_s390x
+#define reg_write reg_write_s390x
+#define uc_init uc_init_s390x
 #define uc_add_inline_hook uc_add_inline_hook_s390x
 #define uc_del_inline_hook uc_del_inline_hook_s390x
 #define tb_invalidate_phys_range tb_invalidate_phys_range_s390x
@@ -50,6 +55,7 @@
 #define vm_start vm_start_s390x
 #define address_space_dispatch_compact address_space_dispatch_compact_s390x
 #define flatview_translate flatview_translate_s390x
+#define flatview_copy flatview_copy_s390x
 #define address_space_translate_for_iotlb address_space_translate_for_iotlb_s390x
 #define qemu_get_cpu qemu_get_cpu_s390x
 #define cpu_address_space_init cpu_address_space_init_s390x
@@ -86,6 +92,7 @@
 #define iotlb_to_section iotlb_to_section_s390x
 #define address_space_dispatch_new address_space_dispatch_new_s390x
 #define address_space_dispatch_free address_space_dispatch_free_s390x
+#define address_space_dispatch_clear address_space_dispatch_clear_s390x
 #define flatview_read_continue flatview_read_continue_s390x
 #define address_space_read_full address_space_read_full_s390x
 #define address_space_write address_space_write_s390x
@@ -119,7 +126,10 @@
 #define memory_map memory_map_s390x
 #define memory_map_io memory_map_io_s390x
 #define memory_map_ptr memory_map_ptr_s390x
+#define memory_cow memory_cow_s390x
 #define memory_unmap memory_unmap_s390x
+#define memory_moveout memory_moveout_s390x
+#define memory_movein memory_movein_s390x
 #define memory_free memory_free_s390x
 #define flatview_unref flatview_unref_s390x
 #define address_space_get_flatview address_space_get_flatview_s390x
@@ -138,7 +148,9 @@
 #define memory_region_get_ram_addr memory_region_get_ram_addr_s390x
 #define memory_region_add_subregion memory_region_add_subregion_s390x
 #define memory_region_del_subregion memory_region_del_subregion_s390x
+#define memory_region_add_subregion_overlap memory_region_add_subregion_overlap_s390x
 #define memory_region_find memory_region_find_s390x
+#define memory_region_filter_subregions memory_region_filter_subregions_s390x
 #define memory_listener_register memory_listener_register_s390x
 #define memory_listener_unregister memory_listener_unregister_s390x
 #define address_space_remove_listeners address_space_remove_listeners_s390x
@@ -146,6 +158,7 @@
 #define address_space_destroy address_space_destroy_s390x
 #define memory_region_init_ram memory_region_init_ram_s390x
 #define memory_mapping_list_add_merge_sorted memory_mapping_list_add_merge_sorted_s390x
+#define find_memory_mapping find_memory_mapping_s390x
 #define exec_inline_op exec_inline_op_s390x
 #define floatx80_default_nan floatx80_default_nan_s390x
 #define float_raise float_raise_s390x
@@ -784,6 +797,7 @@
 #define get_page_addr_code get_page_addr_code_s390x
 #define probe_access probe_access_s390x
 #define tlb_vaddr_to_host tlb_vaddr_to_host_s390x
+#define tlb_vaddr_to_paddr tlb_vaddr_to_paddr_s390x
 #define helper_ret_ldub_mmu helper_ret_ldub_mmu_s390x
 #define helper_le_lduw_mmu helper_le_lduw_mmu_s390x
 #define helper_be_lduw_mmu helper_be_lduw_mmu_s390x
@@ -1277,6 +1291,9 @@
 #define gen_helper_vfp_set_fpscr gen_helper_vfp_set_fpscr_s390x
 #define gen_helper_cpsr_read gen_helper_cpsr_read_s390x
 #define gen_helper_cpsr_write gen_helper_cpsr_write_s390x
+#define tlb_reset_dirty_by_vaddr tlb_reset_dirty_by_vaddr_s390x
+#define helper_stqcx_le_parallel helper_stqcx_le_parallel_s390x
+#define helper_stqcx_be_parallel helper_stqcx_be_parallel_s390x
 #define helper_uc_s390x_exit helper_uc_s390x_exit_s390x
 #define tcg_s390_tod_updated tcg_s390_tod_updated_s390x
 #define tcg_s390_program_interrupt tcg_s390_program_interrupt_s390x

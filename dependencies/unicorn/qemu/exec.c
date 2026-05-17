@@ -955,6 +955,19 @@ void flatview_add_to_dispatch(struct uc_struct *uc, FlatView *fv, MemoryRegionSe
     register_subpage(uc, fv, &remain);
 }
 
+static ram_addr_t find_ram_offset_last(struct uc_struct *uc, ram_addr_t size)
+{
+    ram_addr_t result = 0;
+    RAMBlock *block = uc->ram_list.last_block;
+
+    result = block->offset + block->max_length;
+
+    if (result + size > RAM_ADDR_MAX) {
+        abort();
+    }
+    return result;
+}
+
 /* Allocate space within the ram_addr_t space that governs the
  * dirty bitmaps.
  * Called with the ramlist lock held.
@@ -968,6 +981,10 @@ static ram_addr_t find_ram_offset(struct uc_struct *uc, ram_addr_t size)
 
     if (QLIST_EMPTY_RCU(&uc->ram_list.blocks)) {
         return 0;
+    }
+
+    if (!uc->ram_list.freed) {
+        return find_ram_offset_last(uc, size);
     }
 
     RAMBLOCK_FOREACH(block) {
@@ -1057,18 +1074,26 @@ static void ram_block_add(struct uc_struct *uc, RAMBlock *new_block)
      * QLIST (which has an RCU-friendly variant) does not have insertion at
      * tail, so save the last element in last_block.
      */
-    RAMBLOCK_FOREACH(block) {
-        last_block = block;
-        if (block->max_length < new_block->max_length) {
-            break;
+    if (uc->ram_list.freed || new_block->max_length > uc->target_page_size) {
+        RAMBLOCK_FOREACH(block) {
+            last_block = block;
+            if (block->max_length < new_block->max_length) {
+                break;
+            }
         }
+    } else {
+        last_block = uc->ram_list.last_block;
+        block = NULL;
     }
+
     if (block) {
         QLIST_INSERT_BEFORE_RCU(block, new_block, next);
     } else if (last_block) {
         QLIST_INSERT_AFTER_RCU(last_block, new_block, next);
+        uc->ram_list.last_block = new_block;
     } else { /* list is empty */
         QLIST_INSERT_HEAD_RCU(&uc->ram_list.blocks, new_block, next);
+        uc->ram_list.last_block = new_block;
     }
     uc->ram_list.mru_block = NULL;
 
@@ -1106,7 +1131,8 @@ RAMBlock *qemu_ram_alloc_from_ptr(struct uc_struct *uc, ram_addr_t size, void *h
         new_block->flags |= RAM_PREALLOC;
     }
 
-    uc->invalid_addr = UC_ERR_OK;
+    uc->invalid_addr = 0;
+    uc->invalid_error = UC_ERR_OK;
     ram_block_add(mr->uc, new_block);
 
     if (uc->invalid_error != UC_ERR_OK) {
@@ -1145,6 +1171,8 @@ void qemu_ram_free(struct uc_struct *uc, RAMBlock *block)
 
     QLIST_REMOVE_RCU(block, next);
     uc->ram_list.mru_block = NULL;
+    uc->ram_list.freed = true;
+    uc->ram_list.last_block = NULL;
     /* Write list before version */
     //smp_wmb();
     // call_rcu(block, reclaim_ramblock, rcu);
@@ -1368,6 +1396,7 @@ static subpage_t *subpage_init(struct uc_struct *uc, FlatView *fv, hwaddr base)
     memory_region_init_io(fv->root->uc, &mmio->iomem, &subpage_ops, mmio,
                           TARGET_PAGE_SIZE);
     mmio->iomem.subpage = true;
+    mmio->iomem.priority = uc->snapshot_level;
 #if defined(DEBUG_SUBPAGE)
     printf("%s: %p base " TARGET_FMT_plx " len %08x\n", __func__,
            mmio, base, TARGET_PAGE_SIZE);
@@ -1426,6 +1455,22 @@ AddressSpaceDispatch *address_space_dispatch_new(struct uc_struct *uc, FlatView 
     d->uc = uc;
 
     return d;
+}
+
+void address_space_dispatch_clear(AddressSpaceDispatch *d)
+{
+    MemoryRegionSection *section;
+    struct uc_struct *uc = d->uc;
+    while (d->map.sections_nb > 0) {
+        d->map.sections_nb--;
+        section = &d->map.sections[d->map.sections_nb];
+        if (section->mr->priority > uc->snapshot_level) {
+            phys_section_destroy(section->mr);
+        }
+    }
+    g_free(d->map.sections);
+    g_free(d->map.nodes);
+    g_free(d);
 }
 
 void address_space_dispatch_free(AddressSpaceDispatch *d)

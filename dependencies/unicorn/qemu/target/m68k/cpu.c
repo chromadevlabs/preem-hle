@@ -231,7 +231,7 @@ static void m68k_cpu_class_init(CPUClass *c)
     cc->do_interrupt = m68k_cpu_do_interrupt;
     cc->cpu_exec_interrupt = m68k_cpu_exec_interrupt;
     cc->set_pc = m68k_cpu_set_pc;
-    cc->tlb_fill = m68k_cpu_tlb_fill;
+    cc->tlb_fill_cpu = m68k_cpu_tlb_fill;
     cc->get_phys_page_debug = m68k_cpu_get_phys_page_debug;
     cc->tcg_initialize = m68k_tcg_init;
 }
@@ -265,10 +265,11 @@ M68kCPU *cpu_m68k_init(struct uc_struct *uc)
     CPUState *cs;
     CPUClass *cc;
 
-    cpu = calloc(1, sizeof(*cpu));
+    cpu = qemu_memalign(8, sizeof(*cpu));
     if (cpu == NULL) {
         return NULL;
     }
+    memset((void*)cpu, 0, sizeof(*cpu));
 
     if (uc->cpu_model == INT_MAX) {
         uc->cpu_model = UC_CPU_M68K_CFV4E; // cfv4e

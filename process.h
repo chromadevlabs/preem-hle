@@ -2,8 +2,10 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <functional>
 
-struct Process;
+using target_address_t = uint32_t;
+using host_memory_t    = uint8_t*;
 
 enum class Register {
     r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12,
@@ -12,29 +14,50 @@ enum class Register {
     cpsr, fpscr
 };
 
-using process_trace_callback_t = void(*)(Process*, uint32_t);
+struct RegisterState {
+    Register reg;
+    union {
+        uint32_t u32;
+        float f32;
+    };
+};
 
-Process* process_create(const uint8_t* peImage, size_t imageSize);
-void     process_destroy(Process*);
+struct uc_context;
+struct Thread {
+    enum ExecutionState {
+        Stopped,
+        Running,
+        Waiting
+    };
 
-void     process_install_trace_callback(Process* p, process_trace_callback_t&& callback);
+    uint32_t id;
+    uc_context* context = nullptr;
 
-uint32_t process_reg_read_u32(const Process* p, Register reg);
-float    process_reg_read_f32(const Process* p, Register reg);
+    target_address_t tlsAddress   = 0;
+    target_address_t stackAddress = 0;
+    ExecutionState   state{Stopped};
 
-void     process_reg_write_u32(Process* p, Register reg, uint32_t value);
-void     process_reg_write_f32(Process* p, Register reg, float value);
+    std::function<void(Thread*)> waitFunc;
+};
 
-uint32_t process_stack_read(Process* p, int offset);
-void     process_stack_write(Process* p, int offset, uint32_t value);
+bool     process_init(const uint8_t* peImage, size_t imageSize);
+void     process_shutdown();
+void     process_run();
 
-void     process_reset(Process* p);
-bool     process_run(Process* p);
+Thread*  process_create_thread(size_t stackSize, uint32_t entrypoint, uint32_t user);
+Thread*  process_get_current_thread();
+void     process_thread_start(Thread*);
+void     process_thread_yield();
 
-void     process_panic_dump(const Process* p);
+uint32_t process_reg_read_u32(Register reg);
+float    process_reg_read_f32(Register reg);
 
-uint32_t process_mem_host_to_target(Process* p, void* ptr);
-void*    process_mem_target_to_host(Process* p, uint32_t addr);
+void     process_reg_write_u32(Register reg, uint32_t value);
+void     process_reg_write_f32(Register reg, float value);
 
-uint8_t* process_mem_map(Process* p, uint32_t addr);
-const uint8_t* process_mem_map(const Process* p, uint32_t addr);
+uint32_t process_stack_read(int offset);
+void     process_stack_write(int offset, uint32_t value);
+
+uint32_t process_mem_host_to_target(void*);
+void*    process_mem_target_to_host(uint32_t addr);
+uint32_t process_mem_allocate(uint32_t size);

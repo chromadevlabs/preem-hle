@@ -233,7 +233,7 @@ static void s390_cpu_class_init(struct uc_struct *uc, CPUClass *oc)
     cc->debug_excp_handler = s390x_cpu_debug_excp_handler;
     cc->do_unaligned_access = s390x_cpu_do_unaligned_access;
     cc->tcg_initialize = s390x_translate_init;
-    cc->tlb_fill = s390_cpu_tlb_fill;
+    cc->tlb_fill_cpu = s390_cpu_tlb_fill;
 
     // s390_cpu_model_class_register_props(oc);
 }
@@ -245,10 +245,12 @@ S390CPU *cpu_s390_init(struct uc_struct *uc, const char *cpu_model)
     CPUClass *cc;
     // int i;
 
-    cpu = calloc(1, sizeof(*cpu));
+    // vregs
+    cpu = qemu_memalign(16, sizeof(*cpu));
     if (cpu == NULL) {
         return NULL;
     }
+    memset((void*)cpu, 0, sizeof(*cpu));
 
     if (uc->cpu_model == INT_MAX) {
         uc->cpu_model = UC_CPU_S390X_QEMU; // qemu-s390x-cpu

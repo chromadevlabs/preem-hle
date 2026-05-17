@@ -137,7 +137,7 @@ static void tricore_cpu_class_init(CPUClass *c)
     cc->synchronize_from_tb = tricore_cpu_synchronize_from_tb;
     cc->get_phys_page_debug = tricore_cpu_get_phys_page_debug;
 
-    cc->tlb_fill = tricore_cpu_tlb_fill;
+    cc->tlb_fill_cpu = tricore_cpu_tlb_fill;
     cc->tcg_initialize = tricore_tcg_init;
 }
 
@@ -165,10 +165,11 @@ TriCoreCPU *cpu_tricore_init(struct uc_struct *uc)
     CPUState *cs;
     CPUClass *cc;
 
-    cpu = calloc(1, sizeof(*cpu));
+    cpu = qemu_memalign(8, sizeof(*cpu));
     if (cpu == NULL) {
         return NULL;
     }
+    memset((void*)cpu, 0, sizeof(*cpu));
 
     if (uc->cpu_model == INT_MAX) {
         uc->cpu_model = 2; // tc27x

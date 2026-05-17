@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 /* Capstone Disassembly Engine */
-/* By Nguyen Anh Quynh <aquynh@gmail.com>, 2013-2015 */
+/* By Nguyen Anh Quynh <aquynh@gmail.com>, 2013-2019 */
 
 #ifndef CS_LLVM_SUPPORT_LEB128_H
 #define CS_LLVM_SUPPORT_LEB128_H
@@ -35,4 +35,4 @@ static inline uint64_t decodeULEB128(const uint8_t *p, unsigned *n)
 	return Value;
 }
 
-#endif  // LLVM_SYSTEM_LEB128_H
+#endif // LLVM_SYSTEM_LEB128_H

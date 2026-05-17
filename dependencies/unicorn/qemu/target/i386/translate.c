@@ -532,12 +532,18 @@ static inline void gen_op_add_reg_T0(DisasContext *s, MemOp size, int reg)
     gen_op_mov_reg_v(s, size, reg, s->tmp0);
 }
 
+static inline void gen_sync_pc(TCGContext *ctx, uint64_t pc) {
+    TCGv v = tcg_temp_new(ctx);
+
+    tcg_gen_movi_tl(ctx, v, pc);
+    gen_op_jmp_v(ctx, v);
+
+    tcg_temp_free(ctx, v);
+}
+
 static inline void gen_op_ld_v(DisasContext *s, int idx, TCGv t0, TCGv a0)
 {
     TCGContext *tcg_ctx = s->uc->tcg_ctx;
-
-    if (HOOK_EXISTS(s->uc, UC_HOOK_MEM_READ))
-        gen_jmp_im(s, s->prev_pc); // Unicorn: sync EIP
 
     tcg_gen_qemu_ld_tl(tcg_ctx, t0, a0, s->mem_index, idx | MO_LE);
 }
@@ -545,9 +551,6 @@ static inline void gen_op_ld_v(DisasContext *s, int idx, TCGv t0, TCGv a0)
 static inline void gen_op_st_v(DisasContext *s, int idx, TCGv t0, TCGv a0)
 {
     TCGContext *tcg_ctx = s->uc->tcg_ctx;
-
-    if (HOOK_EXISTS(s->uc, UC_HOOK_MEM_WRITE))
-        gen_jmp_im(s, s->prev_pc); // Unicorn: sync EIP
 
     tcg_gen_qemu_st_tl(tcg_ctx, t0, a0, s->mem_index, idx | MO_LE);
 }
@@ -1481,12 +1484,13 @@ static void gen_op(DisasContext *s1, int op, MemOp ot, int d)
     TCGContext *tcg_ctx = s1->uc->tcg_ctx;
     uc_engine *uc = s1->uc;
 
+    /* Invalid lock prefix when destination is not memory or OP_CMPL. */
+    if ((d != OR_TMP0 || op == OP_CMPL) && s1->prefix & PREFIX_LOCK){
+        gen_illegal_opcode(s1);
+        return;
+    }
+
     if (d != OR_TMP0) {
-        if (s1->prefix & PREFIX_LOCK) {
-            /* Lock prefix when destination is not memory.  */
-            gen_illegal_opcode(s1);
-            return;
-        }
         gen_op_mov_v_reg(s1, ot, s1->T0, d);
     } else if (!(s1->prefix & PREFIX_LOCK)) {
         gen_op_ld_v(s1, ot, s1->T0, s1->A0);
@@ -2920,6 +2924,7 @@ static inline void gen_ldo_env_A0(DisasContext *s, int offset)
 {
     TCGContext *tcg_ctx = s->uc->tcg_ctx;
     int mem_index = s->mem_index;
+
     tcg_gen_qemu_ld_i64(tcg_ctx, s->tmp1_i64, s->A0, mem_index, MO_LEQ);
     tcg_gen_st_i64(tcg_ctx, s->tmp1_i64, tcg_ctx->cpu_env, offset + offsetof(ZMMReg, ZMM_Q(0)));
     tcg_gen_addi_tl(tcg_ctx, s->tmp0, s->A0, 8);
@@ -2931,6 +2936,7 @@ static inline void gen_sto_env_A0(DisasContext *s, int offset)
 {
     TCGContext *tcg_ctx = s->uc->tcg_ctx;
     int mem_index = s->mem_index;
+
     tcg_gen_ld_i64(tcg_ctx, s->tmp1_i64, tcg_ctx->cpu_env, offset + offsetof(ZMMReg, ZMM_Q(0)));
     tcg_gen_qemu_st_i64(tcg_ctx, s->tmp1_i64, s->A0, mem_index, MO_LEQ);
     tcg_gen_addi_tl(tcg_ctx, s->tmp0, s->A0, 8);
@@ -4219,14 +4225,14 @@ static void gen_sse(CPUX86State *env, DisasContext *s, int b,
                 }
                 ot = mo_64_32(s->dflag);
                 gen_ldst_modrm(env, s, modrm, ot, OR_TMP0, 0);
-                /* Note that by zero-extending the mask operand, we
+                /* Note that by zero-extending the source operand, we
                    automatically handle zero-extending the result.  */
                 if (ot == MO_64) {
                     tcg_gen_mov_tl(tcg_ctx, s->T1, tcg_ctx->cpu_regs[s->vex_v]);
                 } else {
                     tcg_gen_ext32u_tl(tcg_ctx, s->T1, tcg_ctx->cpu_regs[s->vex_v]);
                 }
-                gen_helper_pdep(tcg_ctx, tcg_ctx->cpu_regs[reg], s->T0, s->T1);
+                gen_helper_pdep(tcg_ctx, tcg_ctx->cpu_regs[reg], s->T1, s->T0);
                 break;
 
             case 0x2f5: /* pext Gy, By, Ey */
@@ -4237,14 +4243,14 @@ static void gen_sse(CPUX86State *env, DisasContext *s, int b,
                 }
                 ot = mo_64_32(s->dflag);
                 gen_ldst_modrm(env, s, modrm, ot, OR_TMP0, 0);
-                /* Note that by zero-extending the mask operand, we
+                /* Note that by zero-extending the source operand, we
                    automatically handle zero-extending the result.  */
                 if (ot == MO_64) {
                     tcg_gen_mov_tl(tcg_ctx, s->T1, tcg_ctx->cpu_regs[s->vex_v]);
                 } else {
                     tcg_gen_ext32u_tl(tcg_ctx, s->T1, tcg_ctx->cpu_regs[s->vex_v]);
                 }
-                gen_helper_pext(tcg_ctx, tcg_ctx->cpu_regs[reg], s->T0, s->T1);
+                gen_helper_pext(tcg_ctx, tcg_ctx->cpu_regs[reg], s->T1, s->T0);
                 break;
 
             case 0x1f6: /* adcx Gy, Ey */
@@ -4782,12 +4788,12 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
 {
     TCGContext *tcg_ctx = s->uc->tcg_ctx;
     CPUX86State *env = cpu->env_ptr;
-    int b, prefixes;
+    int b, prefixes, prefix_count;
     int shift;
     MemOp ot, aflag, dflag;
     int modrm, reg, rm, mod, op, opreg, val;
     target_ulong next_eip, tval;
-    int rex_w, rex_r;
+    int rex_w, rex_r, rex_byte, rex_index;
     target_ulong pc_start = s->base.pc_next;
     TCGOp *tcg_op, *prev_op = NULL;
     bool insn_hook = false;
@@ -4801,7 +4807,7 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
     if (uc_addr_is_exit(env->uc, s->pc)) {
         // imitate the HLT instruction
         gen_update_cc_op(s);
-        gen_jmp_im(s, pc_start - s->cs_base);
+        gen_sync_pc(tcg_ctx, pc_start - s->cs_base);
         gen_helper_hlt(tcg_ctx, tcg_ctx->cpu_env, tcg_const_i32(tcg_ctx, s->pc - pc_start));
         s->base.is_jmp = DISAS_NORETURN;
         return s->pc;
@@ -4816,7 +4822,7 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
         }
 
         // Sync PC in advance
-        gen_jmp_im(s, pc_start);
+        gen_sync_pc(tcg_ctx, pc_start - s->cs_base);
 
         // save the last operand
         prev_op = tcg_last_op(tcg_ctx);
@@ -4824,6 +4830,9 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
         gen_uc_tracecode(tcg_ctx, 0xf1f1f1f1, UC_HOOK_CODE_IDX, env->uc, pc_start);
 
         check_exit_request(tcg_ctx);
+
+        // Unicorn: Previous hook might change eflags to any state, let's sync it
+        gen_compute_eflags(s);
     }
 
     s->override = -1;
@@ -4844,6 +4853,9 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
     prefixes = 0;
     rex_w = -1;
     rex_r = 0;
+    rex_byte = 0;
+    rex_index = -1;
+    prefix_count = 0;
 
  next_byte:
     b = x86_ldub_code(env, s);
@@ -4851,36 +4863,47 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
     switch (b) {
     case 0xf3:
         prefixes |= PREFIX_REPZ;
+        prefix_count++;
         goto next_byte;
     case 0xf2:
         prefixes |= PREFIX_REPNZ;
+        prefix_count++;
         goto next_byte;
     case 0xf0:
         prefixes |= PREFIX_LOCK;
+        prefix_count++;
         goto next_byte;
     case 0x2e:
         s->override = R_CS;
+        prefix_count++;
         goto next_byte;
     case 0x36:
         s->override = R_SS;
+        prefix_count++;
         goto next_byte;
     case 0x3e:
         s->override = R_DS;
+        prefix_count++;
         goto next_byte;
     case 0x26:
         s->override = R_ES;
+        prefix_count++;
         goto next_byte;
     case 0x64:
         s->override = R_FS;
+        prefix_count++;
         goto next_byte;
     case 0x65:
         s->override = R_GS;
+        prefix_count++;
         goto next_byte;
     case 0x66:
         prefixes |= PREFIX_DATA;
+        prefix_count++;
         goto next_byte;
     case 0x67:
         prefixes |= PREFIX_ADR;
+        prefix_count++;
         goto next_byte;
 #ifdef TARGET_X86_64
     case 0x40:
@@ -4900,13 +4923,9 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
     case 0x4e:
     case 0x4f:
         if (CODE64(s)) {
-            /* REX prefix */
-            rex_w = (b >> 3) & 1;
-            rex_r = (b & 0x4) << 1;
-            s->rex_x = (b & 0x2) << 2;
-            REX_B(s) = (b & 0x1) << 3;
-            /* select uniform byte register addressing */
-            s->x86_64_hregs = true;
+            rex_byte = b;
+            rex_index = prefix_count;
+            prefix_count++;
             goto next_byte;
         }
         break;
@@ -4934,7 +4953,7 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
                 goto illegal_op;
             }
 #ifdef TARGET_X86_64
-            if (s->x86_64_hregs) {
+            if (rex_byte != 0) {
                 goto illegal_op;
             }
 #endif
@@ -4969,11 +4988,23 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
             s->vex_l = (vex3 >> 2) & 1;
             prefixes |= pp_prefix[vex3 & 3] | PREFIX_VEX;
         }
+        prefix_count++;
         break;
     }
 
     /* Post-process prefixes.  */
     if (CODE64(s)) {
+        /* 2.2.1: A REX prefix is ignored when it does not immediately precede the opcode byte */
+        if (rex_byte != 0 && rex_index + 1 == prefix_count) {
+            /* REX prefix */
+            rex_w = (rex_byte >> 3) & 1;
+            rex_r = (rex_byte & 0x4) << 1;
+            s->rex_x = (rex_byte & 0x2) << 2;
+            REX_B(s) = (rex_byte & 0x1) << 3;
+            /* select uniform byte register addressing */
+            s->x86_64_hregs = true;
+        }
+
         /* In 64-bit mode, the default data size is 32-bit.  Select 64-bit
            data with rex_w, and 16-bit data with 0x66; rex_w takes precedence
            over 0x66 if both are present.  */
@@ -5476,6 +5507,9 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
             gen_jr(s, s->T0);
             break;
         case 3: /* lcall Ev */
+            if (mod == 3) {
+                goto illegal_op;
+            }
             gen_op_ld_v(s, ot, s->T1, s->A0);
             gen_add_A0_im(s, 1 << ot);
             gen_op_ld_v(s, MO_16, s->T0, s->A0);
@@ -5503,6 +5537,9 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
             gen_jr(s, s->T0);
             break;
         case 5: /* ljmp Ev */
+            if (mod == 3) {
+                goto illegal_op;
+            }
             gen_op_ld_v(s, ot, s->T1, s->A0);
             gen_add_A0_im(s, 1 << ot);
             gen_op_ld_v(s, MO_16, s->T0, s->A0);
@@ -7791,11 +7828,15 @@ static target_ulong disas_insn(DisasContext *s, CPUState *cpu)
             gen_op_mov_reg_v(s, MO_64, reg, s->T0);
         } else
 #endif
-        {
+        if (dflag == MO_32) {
             gen_op_mov_v_reg(s, MO_32, s->T0, reg);
             tcg_gen_ext32u_tl(tcg_ctx, s->T0, s->T0);
             tcg_gen_bswap32_tl(tcg_ctx, s->T0, s->T0);
             gen_op_mov_reg_v(s, MO_32, reg, s->T0);
+        }
+        else {
+            tcg_gen_movi_tl(tcg_ctx, s->T0, 0);
+            gen_op_mov_reg_v(s, MO_16, reg, s->T0);
         }
         break;
     case 0xd6: /* salc */
@@ -9314,7 +9355,7 @@ static void i386_tr_insn_start(DisasContextBase *dcbase, CPUState *cpu)
     DisasContext *dc = container_of(dcbase, DisasContext, base);
     TCGContext *tcg_ctx = dc->uc->tcg_ctx;
 
-    dc->prev_pc = dc->base.pc_next;
+    dc->prev_pc = dc->base.pc_next - dc->cs_base;
     tcg_gen_insn_start(tcg_ctx, dc->base.pc_next, dc->cc_op);
 }
 
@@ -9382,6 +9423,13 @@ static void i386_tr_tb_stop(DisasContextBase *dcbase, CPUState *cpu)
     }
 }
 
+static void i386_sync_pc(DisasContextBase *db, CPUState *cpu)
+{
+    DisasContext *dc = container_of(db, DisasContext, base);
+
+    gen_jmp_im(dc, dc->base.pc_next - dc->cs_base);
+}
+
 static const TranslatorOps i386_tr_ops = {
     .init_disas_context = i386_tr_init_disas_context,
     .tb_start           = i386_tr_tb_start,
@@ -9389,6 +9437,7 @@ static const TranslatorOps i386_tr_ops = {
     .breakpoint_check   = i386_tr_breakpoint_check,
     .translate_insn     = i386_tr_translate_insn,
     .tb_stop            = i386_tr_tb_stop,
+    .pc_sync            = i386_sync_pc,
 };
 
 /* generate intermediate code for basic block 'tb'.  */

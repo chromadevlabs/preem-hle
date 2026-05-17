@@ -222,8 +222,8 @@ static void test_riscv32_fp_move(void)
     uc_engine *uc;
     char code[] = "\xd3\x81\x10\x22"; // fmv.d f3, f1
 
-    uint32_t r_f1 = 0x1234;
-    uint32_t r_f3 = 0x5678;
+    uint64_t r_f1 = 0x123456781a2b3c4dULL;
+    uint64_t r_f3 = 0x56780246aaaabbbbULL;
 
     uc_common_setup(&uc, UC_ARCH_RISCV, UC_MODE_RISCV32, code,
                     sizeof(code) - 1);
@@ -238,8 +238,8 @@ static void test_riscv32_fp_move(void)
     OK(uc_reg_read(uc, UC_RISCV_REG_F1, &r_f1));
     OK(uc_reg_read(uc, UC_RISCV_REG_F3, &r_f3));
 
-    TEST_CHECK(r_f1 == 0x1234);
-    TEST_CHECK(r_f3 == 0x1234);
+    TEST_CHECK(r_f1 == 0x123456781a2b3c4dULL);
+    TEST_CHECK(r_f3 == 0x123456781a2b3c4dULL);
 
     uc_close(uc);
 }
@@ -249,8 +249,8 @@ static void test_riscv64_fp_move(void)
     uc_engine *uc;
     char code[] = "\xd3\x81\x10\x22"; // fmv.d f3, f1
 
-    uint64_t r_f1 = 0x12341234;
-    uint64_t r_f3 = 0x56785678;
+    uint64_t r_f1 = 0x123456781a2b3c4dULL;
+    uint64_t r_f3 = 0x56780246aaaabbbbULL;
 
     uc_common_setup(&uc, UC_ARCH_RISCV, UC_MODE_RISCV64, code,
                     sizeof(code) - 1);
@@ -265,8 +265,8 @@ static void test_riscv64_fp_move(void)
     OK(uc_reg_read(uc, UC_RISCV_REG_F1, &r_f1));
     OK(uc_reg_read(uc, UC_RISCV_REG_F3, &r_f3));
 
-    TEST_CHECK(r_f1 == 0x12341234);
-    TEST_CHECK(r_f3 == 0x12341234);
+    TEST_CHECK(r_f1 == 0x123456781a2b3c4dULL);
+    TEST_CHECK(r_f3 == 0x123456781a2b3c4dULL);
 
     uc_close(uc);
 }
@@ -634,6 +634,168 @@ static void test_riscv_correct_address_in_long_jump_hook(void)
     OK(uc_close(uc));
 }
 
+static void test_riscv_mmu_prepare_tlb(uc_engine *uc, uint32_t data_address,
+                                       uint32_t code_address)
+{
+    uint64_t tlbe;
+    uint32_t sptbr = 0x2000;
+    uint64_t tlbe_mem;
+
+    OK(uc_mem_map(uc, sptbr, 0x3000, UC_PROT_ALL)); // tlb base
+
+    tlbe = ((sptbr + 0x1000) >> 2) | 1;
+    tlbe_mem = LEINT64(tlbe);
+    OK(uc_mem_write(uc, sptbr, &tlbe_mem, sizeof(tlbe)));
+    tlbe = ((sptbr + 0x2000) >> 2) | 1;
+    tlbe_mem = LEINT64(tlbe);
+    OK(uc_mem_write(uc, sptbr + 0x1000, &tlbe_mem, sizeof(tlbe)));
+
+    tlbe = (code_address >> 2) | (7 << 1) | 1;
+    tlbe_mem = LEINT64(tlbe);
+    OK(uc_mem_write(uc, sptbr + 0x2000 + 0x15 * 8, &tlbe_mem, sizeof(tlbe)));
+
+    tlbe = (data_address >> 2) | (7 << 1) | 1;
+    tlbe_mem = LEINT64(tlbe);
+    OK(uc_mem_write(uc, sptbr + 0x2000 + 0x16 * 8, &tlbe_mem, sizeof(tlbe)));
+}
+
+static void test_riscv_mmu_hook_code(uc_engine *uc, uint64_t address,
+                                     uint32_t size, void *userdata)
+{
+    if (address == 0x15010) {
+        OK(uc_emu_stop(uc));
+    }
+}
+
+static void test_riscv_mmu(void)
+{
+    uc_engine *uc;
+    uc_hook h;
+    uint32_t code_address = 0x5000;
+    uint32_t data_address = 0x6000;
+    uint32_t data_value = 0x41414141;
+    uint32_t data_result = 0;
+
+    /*
+    li        t3, (8 << 60) | 2
+    csrw      sptbr, t3
+    li        t0, (1 << 11) | (1 << 5)
+    csrw      mstatus, t0
+    la        t1, 0x15000
+    csrw      mepc, t1
+    mret
+    */
+    char code_m[] = "\x1b\x0e\xf0\xff"
+                    "\x13\x1e\xfe\x03"
+                    "\x13\x0e\x2e\x00"
+                    "\x73\x10\x0e\x18"
+                    "\xb7\x12\x00\x00"
+                    "\x9b\x82\x02\x82"
+                    "\x73\x90\x02\x30"
+                    "\x37\x53\x01\x00"
+                    "\x73\x10\x13\x34"
+                    "\x73\x00\x20\x30";
+
+    /*
+    li t0, 0x41414141
+    li t1, 0x16000
+    sw t0, 0(t1)
+    nop
+    */
+    char code_s[] = "\xb7\x42\x41\x41"
+                    "\x9b\x82\x12\x14"
+                    "\x37\x63\x01\x00"
+                    "\x23\x20\x53\x00"
+                    "\x13\x00\x00\x00";
+
+    OK(uc_open(UC_ARCH_RISCV, UC_MODE_RISCV64, &uc));
+    OK(uc_ctl_tlb_mode(uc, UC_TLB_CPU));
+    OK(uc_hook_add(uc, &h, UC_HOOK_CODE, test_riscv_mmu_hook_code, NULL, 1, 0));
+    OK(uc_mem_map(uc, 0x1000, 0x1000, UC_PROT_ALL));
+    OK(uc_mem_map(uc, code_address, 0x1000, UC_PROT_ALL));
+    OK(uc_mem_map(uc, data_address, 0x1000, UC_PROT_ALL));
+    OK(uc_mem_write(uc, code_address, &code_s, sizeof(code_s)));
+    OK(uc_mem_write(uc, 0x1000, &code_m, sizeof(code_m)));
+
+    test_riscv_mmu_prepare_tlb(uc, data_address, code_address);
+
+    OK(uc_emu_start(uc, 0x1000, sizeof(code_m) - 1, 0, 0));
+    OK(uc_mem_read(uc, data_address, &data_result, sizeof(data_result)));
+
+    TEST_CHECK(data_value == data_result);
+    OK(uc_close(uc));
+}
+
+static void test_riscv_priv(void)
+{
+    uc_engine *uc;
+    uc_err err;
+    uint32_t m_entry_address = 0x1000;
+    uint32_t main_address = 0x3000;
+    uint64_t priv_value = ~0;
+    uint64_t pc = ~0;
+    uint64_t reg_value;
+
+    /*
+    li        t0, 0
+    csrw      mstatus, t0
+    li        t1, 0x3000
+    csrw      mepc, t1
+    mret
+    */
+    char code_m_entry[] = "\x93\x02\x00\x00"
+                          "\x73\x90\x02\x30"
+                          "\x37\x33\x00\x00"
+                          "\x73\x10\x13\x34"
+                          "\x73\x00\x20\x30";
+
+    /*
+    csrw    sscratch, t0
+    nop
+    */
+    char code_main[] = "\x73\x90\x02\x14"
+                       "\x13\x00\x00\x00";
+    int main_end_address = main_address + sizeof(code_main) - 1;
+
+    OK(uc_open(UC_ARCH_RISCV, UC_MODE_RISCV64, &uc));
+    OK(uc_ctl_tlb_mode(uc, UC_TLB_CPU));
+    OK(uc_mem_map(uc, m_entry_address, 0x1000, UC_PROT_ALL));
+    OK(uc_mem_map(uc, main_address, 0x1000, UC_PROT_ALL));
+    OK(uc_mem_write(uc, m_entry_address, &code_m_entry, sizeof(code_m_entry)));
+    OK(uc_mem_write(uc, main_address, &code_main, sizeof(code_main)));
+
+    // Before anything executes we should be in M-Mode
+    OK(uc_reg_read(uc, UC_RISCV_REG_PRIV, &priv_value));
+    TEST_ASSERT(priv_value == 3);
+
+    // We'll put a sentinel value in sscratch so we can determine whether we've
+    // successfully written to it below.
+    reg_value = 0xffff;
+    OK(uc_reg_write(uc, UC_RISCV_REG_SSCRATCH, &reg_value));
+
+    // Run until we reach the "csrw" at the start of code_main, at which
+    // point we should be in U-Mode due to the mret instruction.
+    OK(uc_emu_start(uc, m_entry_address, main_address, 0, 10));
+
+    OK(uc_reg_read(uc, UC_RISCV_REG_PC, &pc));
+    TEST_ASSERT(pc == main_address);
+    OK(uc_reg_read(uc, UC_RISCV_REG_PRIV, &priv_value));
+    TEST_ASSERT(priv_value == 0); // Now in U-Mode
+
+    // U-Mode can't write to sscratch, so execution at this point should
+    // cause an invalid instruction exception.
+    err = uc_emu_start(uc, main_address, main_end_address, 0, 0);
+    OK(uc_reg_read(uc, UC_RISCV_REG_PC, &pc));
+    TEST_ASSERT(err == UC_ERR_EXCEPTION);
+
+    // ...but if we force S-Mode then we should be able to set it successfully.
+    priv_value = 1;
+    OK(uc_reg_write(uc, UC_RISCV_REG_PRIV, &priv_value));
+    OK(uc_emu_start(uc, main_address, main_end_address, 0, 0));
+    OK(uc_reg_read(uc, UC_RISCV_REG_SSCRATCH, &reg_value));
+    TEST_ASSERT(reg_value == 0);
+}
+
 TEST_LIST = {
     {"test_riscv32_nop", test_riscv32_nop},
     {"test_riscv64_nop", test_riscv64_nop},
@@ -657,4 +819,6 @@ TEST_LIST = {
      test_riscv_correct_address_in_small_jump_hook},
     {"test_riscv_correct_address_in_long_jump_hook",
      test_riscv_correct_address_in_long_jump_hook},
+    {"test_riscv_mmu", test_riscv_mmu},
+    {"test_riscv_priv", test_riscv_priv},
     {NULL, NULL}};

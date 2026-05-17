@@ -4,6 +4,11 @@
 #ifndef UNICORN_ARCH_POSTFIX
 #define UNICORN_ARCH_POSTFIX _mips
 #endif
+#define gen_helper_check_exit_request gen_helper_check_exit_request_mips
+#define unicorn_fill_tlb unicorn_fill_tlb_mips
+#define reg_read reg_read_mips
+#define reg_write reg_write_mips
+#define uc_init uc_init_mips
 #define uc_add_inline_hook uc_add_inline_hook_mips
 #define uc_del_inline_hook uc_del_inline_hook_mips
 #define tb_invalidate_phys_range tb_invalidate_phys_range_mips
@@ -50,6 +55,7 @@
 #define vm_start vm_start_mips
 #define address_space_dispatch_compact address_space_dispatch_compact_mips
 #define flatview_translate flatview_translate_mips
+#define flatview_copy flatview_copy_mips
 #define address_space_translate_for_iotlb address_space_translate_for_iotlb_mips
 #define qemu_get_cpu qemu_get_cpu_mips
 #define cpu_address_space_init cpu_address_space_init_mips
@@ -86,6 +92,7 @@
 #define iotlb_to_section iotlb_to_section_mips
 #define address_space_dispatch_new address_space_dispatch_new_mips
 #define address_space_dispatch_free address_space_dispatch_free_mips
+#define address_space_dispatch_clear address_space_dispatch_clear_mips
 #define flatview_read_continue flatview_read_continue_mips
 #define address_space_read_full address_space_read_full_mips
 #define address_space_write address_space_write_mips
@@ -119,7 +126,10 @@
 #define memory_map memory_map_mips
 #define memory_map_io memory_map_io_mips
 #define memory_map_ptr memory_map_ptr_mips
+#define memory_cow memory_cow_mips
 #define memory_unmap memory_unmap_mips
+#define memory_moveout memory_moveout_mips
+#define memory_movein memory_movein_mips
 #define memory_free memory_free_mips
 #define flatview_unref flatview_unref_mips
 #define address_space_get_flatview address_space_get_flatview_mips
@@ -138,7 +148,9 @@
 #define memory_region_get_ram_addr memory_region_get_ram_addr_mips
 #define memory_region_add_subregion memory_region_add_subregion_mips
 #define memory_region_del_subregion memory_region_del_subregion_mips
+#define memory_region_add_subregion_overlap memory_region_add_subregion_overlap_mips
 #define memory_region_find memory_region_find_mips
+#define memory_region_filter_subregions memory_region_filter_subregions_mips
 #define memory_listener_register memory_listener_register_mips
 #define memory_listener_unregister memory_listener_unregister_mips
 #define address_space_remove_listeners address_space_remove_listeners_mips
@@ -146,6 +158,7 @@
 #define address_space_destroy address_space_destroy_mips
 #define memory_region_init_ram memory_region_init_ram_mips
 #define memory_mapping_list_add_merge_sorted memory_mapping_list_add_merge_sorted_mips
+#define find_memory_mapping find_memory_mapping_mips
 #define exec_inline_op exec_inline_op_mips
 #define floatx80_default_nan floatx80_default_nan_mips
 #define float_raise float_raise_mips
@@ -784,6 +797,7 @@
 #define get_page_addr_code get_page_addr_code_mips
 #define probe_access probe_access_mips
 #define tlb_vaddr_to_host tlb_vaddr_to_host_mips
+#define tlb_vaddr_to_paddr tlb_vaddr_to_paddr_mips
 #define helper_ret_ldub_mmu helper_ret_ldub_mmu_mips
 #define helper_le_lduw_mmu helper_le_lduw_mmu_mips
 #define helper_be_lduw_mmu helper_be_lduw_mmu_mips
@@ -1277,6 +1291,9 @@
 #define gen_helper_vfp_set_fpscr gen_helper_vfp_set_fpscr_mips
 #define gen_helper_cpsr_read gen_helper_cpsr_read_mips
 #define gen_helper_cpsr_write gen_helper_cpsr_write_mips
+#define tlb_reset_dirty_by_vaddr tlb_reset_dirty_by_vaddr_mips
+#define helper_stqcx_le_parallel helper_stqcx_le_parallel_mips
+#define helper_stqcx_be_parallel helper_stqcx_be_parallel_mips
 #define helper_mfc0_mvpcontrol helper_mfc0_mvpcontrol_mips
 #define helper_mfc0_mvpconf0 helper_mfc0_mvpconf0_mips
 #define helper_mfc0_mvpconf1 helper_mfc0_mvpconf1_mips
@@ -2384,9 +2401,6 @@
 #define cpu_mips_realize_env cpu_mips_realize_env_mips
 #define cpu_state_reset cpu_state_reset_mips
 #define restore_state_to_opc restore_state_to_opc_mips
-#define mips_reg_reset mips_reg_reset_mips
-#define mips_reg_read mips_reg_read_mips
-#define mips_reg_write mips_reg_write_mips
 #define ieee_rm ieee_rm_mips
 #define mips_defs mips_defs_mips
 #define mips_defs_number mips_defs_number_mips

@@ -1,17 +1,55 @@
-[package]
-name = "unicorn-engine"
-version = "2.0.1"
-authors = ["Ziqiao Kong", "Lukas Seidel"]
+[workspace]
+members = ["bindings/rust/unicorn-engine"]
+resolver = "2"
+
+[workspace.package]
+rust-version = "1.85.0"
+version = "2.1.5"
+authors = ["Ziqiao Kong <mio@lazym.io>", "Lukas Seidel", "Amaan Qureshi <amaanq12@gmail.com>"]
+keywords = ["unicorn", "cpu", "emulator", "bindings"]
+categories = ["api-bindings", "emulators", "no-std", "virtualization"]
 documentation = "https://github.com/unicorn-engine/unicorn/wiki"
-edition = "2021"
+edition = "2024"
 license = "GPL-2.0"
-readme = "README.md"
+readme = "./bindings/rust/sys/README.md"
 repository = "https://github.com/unicorn-engine/unicorn"
 description = "Rust bindings for the Unicorn emulator with utility functions"
-build = "bindings/rust/build.rs"
+
+[workspace.lints.clippy]
+cast_lossless = "allow"
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_sign_loss = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+similar_names = "allow"
+unreadable_literal = "allow"
+use_self = "allow"
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+
+# Root package
+[package]
+name = "unicorn-engine-sys"
+version.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories = [
+	"api-bindings",
+	"emulators",
+	"external-ffi-bindings",
+	"no-std",
+	"virtualization",
+]
+documentation.workspace = true
+edition.workspace = true
+license.workspace = true
+readme = "README.md"
+repository.workspace = true
+description.workspace = true
 links = "unicorn"
-# use `cargo publish --list` to see files to be included
-# the resulting list what cargo uses to check for out-of-date files during build
+# Cargo package --list
 exclude = [
     "/docs",
     "/bindings/dotnet",
@@ -22,22 +60,46 @@ exclude = [
     "/bindings/python",
     "/bindings/ruby",
     "/bindings/vb6",
+    "/bindings/zig",
     "/samples",
     "/tests",
 ]
 
 [lib]
-path = "bindings/rust/src/lib.rs"
+path = "bindings/rust/sys/src/lib.rs"
 
-[dependencies]
-bitflags = "1.3"
-libc = "0.2"
+[lints]
+workspace = true
 
 [build-dependencies]
-cc = { version = "1.0" }
-cmake = { version = "0.1" }
-pkg-config = { version = "0.3" }
+bindgen = "0.71.1"
+cc = { version = "1.2.17" }
+cmake = { version = "0.1.54" }
+heck = "0.5.0"
+pkg-config = { version = "0.3.32" }
 
 [features]
-default = []
+default = ["arch_all"]
 dynamic_linkage = []
+arch_all = [
+	"arch_x86",
+	"arch_arm",
+	"arch_aarch64",
+	"arch_riscv",
+	"arch_mips",
+	"arch_sparc",
+	"arch_m68k",
+	"arch_ppc",
+	"arch_s390x",
+	"arch_tricore",
+]
+arch_x86 = []
+arch_arm = []
+arch_aarch64 = ["arch_arm"]
+arch_riscv = []
+arch_mips = []
+arch_sparc = []
+arch_m68k = []
+arch_ppc = []
+arch_s390x = []
+arch_tricore = []

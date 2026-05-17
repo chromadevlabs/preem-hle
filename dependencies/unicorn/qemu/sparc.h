@@ -4,6 +4,11 @@
 #ifndef UNICORN_ARCH_POSTFIX
 #define UNICORN_ARCH_POSTFIX _sparc
 #endif
+#define gen_helper_check_exit_request gen_helper_check_exit_request_sparc
+#define unicorn_fill_tlb unicorn_fill_tlb_sparc
+#define reg_read reg_read_sparc
+#define reg_write reg_write_sparc
+#define uc_init uc_init_sparc
 #define uc_add_inline_hook uc_add_inline_hook_sparc
 #define uc_del_inline_hook uc_del_inline_hook_sparc
 #define tb_invalidate_phys_range tb_invalidate_phys_range_sparc
@@ -50,6 +55,7 @@
 #define vm_start vm_start_sparc
 #define address_space_dispatch_compact address_space_dispatch_compact_sparc
 #define flatview_translate flatview_translate_sparc
+#define flatview_copy flatview_copy_sparc
 #define address_space_translate_for_iotlb address_space_translate_for_iotlb_sparc
 #define qemu_get_cpu qemu_get_cpu_sparc
 #define cpu_address_space_init cpu_address_space_init_sparc
@@ -86,6 +92,7 @@
 #define iotlb_to_section iotlb_to_section_sparc
 #define address_space_dispatch_new address_space_dispatch_new_sparc
 #define address_space_dispatch_free address_space_dispatch_free_sparc
+#define address_space_dispatch_clear address_space_dispatch_clear_sparc
 #define flatview_read_continue flatview_read_continue_sparc
 #define address_space_read_full address_space_read_full_sparc
 #define address_space_write address_space_write_sparc
@@ -119,7 +126,10 @@
 #define memory_map memory_map_sparc
 #define memory_map_io memory_map_io_sparc
 #define memory_map_ptr memory_map_ptr_sparc
+#define memory_cow memory_cow_sparc
 #define memory_unmap memory_unmap_sparc
+#define memory_moveout memory_moveout_sparc
+#define memory_movein memory_movein_sparc
 #define memory_free memory_free_sparc
 #define flatview_unref flatview_unref_sparc
 #define address_space_get_flatview address_space_get_flatview_sparc
@@ -138,7 +148,9 @@
 #define memory_region_get_ram_addr memory_region_get_ram_addr_sparc
 #define memory_region_add_subregion memory_region_add_subregion_sparc
 #define memory_region_del_subregion memory_region_del_subregion_sparc
+#define memory_region_add_subregion_overlap memory_region_add_subregion_overlap_sparc
 #define memory_region_find memory_region_find_sparc
+#define memory_region_filter_subregions memory_region_filter_subregions_sparc
 #define memory_listener_register memory_listener_register_sparc
 #define memory_listener_unregister memory_listener_unregister_sparc
 #define address_space_remove_listeners address_space_remove_listeners_sparc
@@ -146,6 +158,7 @@
 #define address_space_destroy address_space_destroy_sparc
 #define memory_region_init_ram memory_region_init_ram_sparc
 #define memory_mapping_list_add_merge_sorted memory_mapping_list_add_merge_sorted_sparc
+#define find_memory_mapping find_memory_mapping_sparc
 #define exec_inline_op exec_inline_op_sparc
 #define floatx80_default_nan floatx80_default_nan_sparc
 #define float_raise float_raise_sparc
@@ -784,6 +797,7 @@
 #define get_page_addr_code get_page_addr_code_sparc
 #define probe_access probe_access_sparc
 #define tlb_vaddr_to_host tlb_vaddr_to_host_sparc
+#define tlb_vaddr_to_paddr tlb_vaddr_to_paddr_sparc
 #define helper_ret_ldub_mmu helper_ret_ldub_mmu_sparc
 #define helper_le_lduw_mmu helper_le_lduw_mmu_sparc
 #define helper_be_lduw_mmu helper_be_lduw_mmu_sparc
@@ -1277,6 +1291,9 @@
 #define gen_helper_vfp_set_fpscr gen_helper_vfp_set_fpscr_sparc
 #define gen_helper_cpsr_read gen_helper_cpsr_read_sparc
 #define gen_helper_cpsr_write gen_helper_cpsr_write_sparc
+#define tlb_reset_dirty_by_vaddr tlb_reset_dirty_by_vaddr_sparc
+#define helper_stqcx_le_parallel helper_stqcx_le_parallel_sparc
+#define helper_stqcx_be_parallel helper_stqcx_be_parallel_sparc
 #define helper_compute_psr helper_compute_psr_sparc
 #define helper_compute_C_icc helper_compute_C_icc_sparc
 #define cpu_sparc_set_id cpu_sparc_set_id_sparc
@@ -1414,7 +1431,4 @@
 #define helper_wrpil helper_wrpil_sparc
 #define helper_done helper_done_sparc
 #define helper_retry helper_retry_sparc
-#define sparc_reg_reset sparc_reg_reset_sparc
-#define sparc_reg_read sparc_reg_read_sparc
-#define sparc_reg_write sparc_reg_write_sparc
 #endif

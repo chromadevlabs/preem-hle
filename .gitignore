@@ -3,3 +3,5 @@ build
 .vscode
 out
 .DS_Store
+.cache
+*.json

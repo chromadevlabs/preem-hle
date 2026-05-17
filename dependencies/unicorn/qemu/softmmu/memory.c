@@ -26,6 +26,10 @@
 
 //#define DEBUG_UNASSIGNED
 
+void memory_region_transaction_begin(void);
+static void memory_region_transaction_commit(MemoryRegion *mr);
+static void memory_region_destructor_container(MemoryRegion *mr);
+
 typedef struct AddrRange AddrRange;
 
 /*
@@ -49,7 +53,7 @@ MemoryRegion *memory_map(struct uc_struct *uc, hwaddr begin, size_t size, uint32
         return NULL;
     }
 
-    memory_region_add_subregion(uc->system_memory, begin, ram);
+    memory_region_add_subregion_overlap(uc->system_memory, begin, ram, uc->snapshot_level);
 
     if (uc->cpu) {
         tlb_flush(uc->cpu);
@@ -74,6 +78,51 @@ MemoryRegion *memory_map_ptr(struct uc_struct *uc, hwaddr begin, size_t size, ui
 
     if (uc->cpu) {
         tlb_flush(uc->cpu);
+    }
+
+    return ram;
+}
+
+static void make_contained(struct uc_struct *uc, MemoryRegion *current)
+{
+    hwaddr addr = current->addr;
+    MemoryRegion *container = g_new(MemoryRegion, 1);
+    memory_region_init(uc, container, int128_get64(current->size));
+    container->destructor = memory_region_destructor_container;
+    memory_region_del_subregion(uc->system_memory, current);
+    memory_region_add_subregion_overlap(container, 0, current, current->priority);
+    memory_region_add_subregion(uc->system_memory, addr, container);
+}
+
+MemoryRegion *memory_cow(struct uc_struct *uc, MemoryRegion *current, hwaddr begin, size_t size)
+{
+    hwaddr addr;
+    hwaddr offset;
+    hwaddr current_offset;
+    MemoryRegion *ram = g_new(MemoryRegion, 1);
+
+    assert((begin & ~TARGET_PAGE_MASK) == 0);
+    assert((size & ~TARGET_PAGE_MASK) == 0);
+
+    if (current->container == uc->system_memory) {
+        make_contained(uc, current);
+    }
+    offset = begin - current->container->addr;;
+    current_offset = offset - current->addr;
+
+    memory_region_init_ram(uc, ram, size, current->perms);
+    if (ram->addr == -1 || !ram->ram_block) {
+        g_free(ram);
+        return NULL;
+    }
+
+    memcpy(ramblock_ptr(ram->ram_block, 0), ramblock_ptr(current->ram_block, current_offset), size);
+    memory_region_add_subregion_overlap(current->container, offset, ram, uc->snapshot_level);
+
+    if (uc->cpu) {
+        for (addr = ram->addr; (int64_t)(ram->end - addr) > 0; addr += uc->target_page_size) {
+           tlb_flush_page(uc->cpu, addr);
+        }
     }
 
     return ram;
@@ -148,44 +197,125 @@ MemoryRegion *memory_map_io(struct uc_struct *uc, ram_addr_t begin, size_t size,
     return mmio;
 }
 
-void memory_unmap(struct uc_struct *uc, MemoryRegion *mr)
+static void memory_region_remove_subregion(MemoryRegion *mr,
+                                 MemoryRegion *subregion)
 {
-    int i;
-    hwaddr addr;
+    assert(subregion->container == mr);
+    subregion->container = NULL;
+    QTAILQ_REMOVE(&mr->subregions, subregion, subregions_link);
+}
 
-    // Make sure all pages associated with the MemoryRegion are flushed
-    // Only need to do this if we are in a running state
-    if (uc->cpu) {
-        for (addr = mr->addr; addr < mr->end; addr += uc->target_page_size) {
-           tlb_flush_page(uc->cpu, addr);
+void memory_region_filter_subregions(MemoryRegion *mr, int32_t level)
+{
+    MemoryRegion *subregion, *subregion_next;
+    /*
+     * memory transaction/commit are only to rebuild the flatview. At
+     * this point there is need to rebuild the flatview, because this
+     * function is either called as part of a destructor or as part of
+     * a context restore. In the destructor case the caller remove the
+     * complete memory region and should do a transaction/commit. In
+     * the context restore case the flatview is taken from the context so
+     * no need to rebuild it.
+     */
+    QTAILQ_FOREACH_SAFE(subregion, &mr->subregions, subregions_link, subregion_next) {
+        if (subregion->priority >= level) {
+            memory_region_remove_subregion(mr, subregion);
+            subregion->destructor(subregion);
+            g_free(subregion);
         }
     }
-    memory_region_del_subregion(uc->system_memory, mr);
+}
 
+static void memory_region_remove_mapped_block(struct uc_struct *uc, MemoryRegion *mr, bool free)
+{
+    size_t i;
     for (i = 0; i < uc->mapped_block_count; i++) {
         if (uc->mapped_blocks[i] == mr) {
             uc->mapped_block_count--;
             //shift remainder of array down over deleted pointer
             memmove(&uc->mapped_blocks[i], &uc->mapped_blocks[i + 1], sizeof(MemoryRegion*) * (uc->mapped_block_count - i));
-            mr->destructor(mr);
-            g_free(mr);
+            if (free) {
+                mr->destructor(mr);
+                g_free(mr);
+            }
             break;
         }
     }
 }
 
+void memory_moveout(struct uc_struct *uc, MemoryRegion *mr)
+{
+    hwaddr addr;
+    /* A bit dirty, but it works.
+     * The first subregion will be the one with the smalest priority.
+     * In case of CoW this will always be the region which is mapped initial and later be moved in the subregion of the container.
+     * The initial subregion is the one stored in mapped_blocks
+     * Because CoW is done after the snapshot level is increased there is only on subregion with 
+     */
+    memory_region_transaction_begin();
+    MemoryRegion *mr_block = QTAILQ_FIRST(&mr->subregions);
+
+    if (!mr_block) {
+        mr_block = mr;
+    }
+
+    if (uc->cpu) {
+        // We also need to remove all tb cache
+        uc->uc_invalidate_tb(uc, mr->addr, int128_get64(mr->size));
+
+        // Make sure all pages associated with the MemoryRegion are flushed
+        // Only need to do this if we are in a running state
+        for (addr = mr->addr; (int64_t)(mr->end - addr) > 0; addr += uc->target_page_size) {
+           tlb_flush_page(uc->cpu, addr);
+        }
+    }
+
+    memory_region_del_subregion(uc->system_memory, mr);
+    g_array_append_val(uc->unmapped_regions, mr);
+    memory_region_remove_mapped_block(uc, mr_block, false);
+    uc->memory_region_update_pending = true;
+    memory_region_transaction_commit(uc->system_memory);
+    /* dirty hack to save the snapshot level */
+    mr->container = (void *)(intptr_t)uc->snapshot_level;
+}
+
+void memory_movein(struct uc_struct *uc, MemoryRegion *mr)
+{
+    memory_region_transaction_begin();
+    memory_region_add_subregion_overlap(uc->system_memory, mr->addr, mr, mr->priority);
+    uc->memory_region_update_pending = true;
+    memory_region_transaction_commit(uc->system_memory);
+}
+
+void memory_unmap(struct uc_struct *uc, MemoryRegion *mr)
+{
+    hwaddr addr;
+
+    if (uc->cpu) {
+        // We also need to remove all tb cache
+        uc->uc_invalidate_tb(uc, mr->addr, int128_get64(mr->size));
+
+        // Make sure all pages associated with the MemoryRegion are flushed
+        // Only need to do this if we are in a running state
+        for (addr = mr->addr; (int64_t)(mr->end - addr) > 0; addr += uc->target_page_size) {
+           tlb_flush_page(uc->cpu, addr);
+        }
+    }
+    memory_region_del_subregion(uc->system_memory, mr);
+    memory_region_remove_mapped_block(uc, mr, true);
+}
+
 int memory_free(struct uc_struct *uc)
 {
-    MemoryRegion *mr;
-    int i;
+    MemoryRegion *subregion, *subregion_next;
+    MemoryRegion *mr = uc->system_memory;
 
-    for (i = 0; i < uc->mapped_block_count; i++) {
-        mr = uc->mapped_blocks[i];
-        mr->enabled = false;
-        memory_region_del_subregion(uc->system_memory, mr);
-        mr->destructor(mr);
+    QTAILQ_FOREACH_SAFE(subregion, &mr->subregions, subregions_link, subregion_next) {
+        subregion->enabled = false;
+        memory_region_del_subregion(uc->system_memory, subregion);
+        subregion->destructor(subregion);
         /* destroy subregion */
-        g_free(mr);
+        g_free(subregion);
     }
 
     return 0;
@@ -794,6 +924,77 @@ static void flatviews_init(struct uc_struct *uc)
     }
 }
 
+bool flatview_copy(struct uc_struct *uc, FlatView *dst, FlatView *src, bool update_dispatcher)
+{
+    if (!dst->ranges || !dst->nr_allocated || dst->nr_allocated < src->nr) {
+        if (dst->ranges && dst->nr_allocated) {
+            free(dst->ranges);
+        }
+        dst->ranges = calloc(src->nr_allocated, sizeof(*dst->ranges));
+        if (!dst->ranges) {
+            return false;
+        }
+        dst->nr_allocated = src->nr_allocated;
+    }
+    memcpy(dst->ranges, src->ranges, src->nr*sizeof(*dst->ranges));
+    dst->nr = src->nr;
+    if (!update_dispatcher) {
+        return true;
+    }
+    MEMORY_LISTENER_CALL_GLOBAL(uc, begin, Forward);
+    if (dst->dispatch) {
+        address_space_dispatch_clear(dst->dispatch);
+    }
+    dst->dispatch = address_space_dispatch_new(uc, dst);
+    for (size_t j = 0; j < dst->nr; j++) {
+        MemoryRegionSection mrs =
+            section_from_flat_range(&dst->ranges[j], dst);
+	mrs.mr->subpage = false;
+        flatview_add_to_dispatch(uc, dst, &mrs);
+    }
+    address_space_dispatch_compact(dst->dispatch);
+    MEMORY_LISTENER_CALL_GLOBAL(uc, commit, Forward);
+    return true;
+}
+
+static bool flatview_update(FlatView *fv, MemoryRegion *mr)
+{
+    struct uc_struct *uc = mr->uc;
+    MemoryRegion *c = mr;
+    AddrRange r;
+    hwaddr addr = 0;
+    r.size = mr->size;
+    do {
+        addr += c->addr;
+    } while ((c = c->container));
+    r.start = int128_make64(addr);
+
+    if (!mr->container || !QTAILQ_EMPTY(&mr->subregions))
+        return false;
+
+    for (size_t i = 0; i < fv->nr; i++) {
+        if (!addrrange_intersects(fv->ranges[i].addr, r)) {
+            continue;
+        }
+        if (!addrrange_equal(fv->ranges[i].addr, r)) {
+            break;
+        }
+        fv->ranges[i].mr = mr;
+        fv->ranges[i].offset_in_region = 0;
+        fv->ranges[i].readonly = mr->readonly;
+        address_space_dispatch_clear(fv->dispatch);
+        fv->dispatch = address_space_dispatch_new(uc, fv);
+        for (size_t j = 0; j < fv->nr; j++) {
+            MemoryRegionSection mrs =
+                section_from_flat_range(&fv->ranges[j], fv);
+            flatview_add_to_dispatch(uc, fv, &mrs);
+        }
+        address_space_dispatch_compact(fv->dispatch);
+        return true;
+    }
+    return false;
+}
+
 static void flatviews_reset(struct uc_struct *uc)
 {
     AddressSpace *as;
@@ -860,18 +1061,23 @@ void memory_region_transaction_begin(void)
 {
 }
 
-void memory_region_transaction_commit(MemoryRegion *mr)
+static void memory_region_transaction_commit(MemoryRegion *mr)
 {
-    AddressSpace *as;
+    AddressSpace *as = memory_region_to_address_space(mr);
+    FlatView *fv = NULL;
+    if (as)
+        fv = address_space_to_flatview(as);
 
     if (mr->uc->memory_region_update_pending) {
-        flatviews_reset(mr->uc);
-
         MEMORY_LISTENER_CALL_GLOBAL(mr->uc, begin, Forward);
 
-        QTAILQ_FOREACH(as, &mr->uc->address_spaces, address_spaces_link) {
-            address_space_set_flatview(as);
+        if (!fv || !flatview_update(fv, mr)) {
+            flatviews_reset(mr->uc);
+            QTAILQ_FOREACH(as, &mr->uc->address_spaces, address_spaces_link) {
+                address_space_set_flatview(as);
+            }
         }
+
         mr->uc->memory_region_update_pending = false;
         MEMORY_LISTENER_CALL_GLOBAL(mr->uc, commit, Forward);
     }
@@ -883,7 +1089,13 @@ static void memory_region_destructor_none(MemoryRegion *mr)
 
 static void memory_region_destructor_ram(MemoryRegion *mr)
 {
+    memory_region_filter_subregions(mr, 0);
     qemu_ram_free(mr->uc, mr->ram_block);
+}
+
+static void memory_region_destructor_container(MemoryRegion *mr)
+{
+    memory_region_filter_subregions(mr, 0);
 }
 
 void memory_region_init(struct uc_struct *uc,
@@ -1113,14 +1325,16 @@ static void memory_region_update_container_subregions(MemoryRegion *subregion)
     memory_region_transaction_begin();
 
     QTAILQ_FOREACH(other, &mr->subregions, subregions_link) {
-        QTAILQ_INSERT_BEFORE(other, subregion, subregions_link);
-        goto done;
+        if (subregion->priority >= other->priority) {
+            QTAILQ_INSERT_BEFORE(other, subregion, subregions_link);
+            goto done;
+        }
     }
     QTAILQ_INSERT_TAIL(&mr->subregions, subregion, subregions_link);
 
 done:
     mr->uc->memory_region_update_pending = true;
-    memory_region_transaction_commit(mr);
+    memory_region_transaction_commit(subregion);
 }
 
 static void memory_region_add_subregion_common(MemoryRegion *mr,
@@ -1138,6 +1352,16 @@ void memory_region_add_subregion(MemoryRegion *mr,
                                  hwaddr offset,
                                  MemoryRegion *subregion)
 {
+    subregion->priority = 0;
+    memory_region_add_subregion_common(mr, offset, subregion);
+}
+
+void memory_region_add_subregion_overlap(MemoryRegion *mr,
+                                         hwaddr offset,
+                                         MemoryRegion *subregion,
+                                         int priority)
+{
+    subregion->priority = priority;
     memory_region_add_subregion_common(mr, offset, subregion);
 }
 

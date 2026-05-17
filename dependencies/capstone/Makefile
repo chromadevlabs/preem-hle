@@ -10,7 +10,7 @@ V ?= 0
 
 OS := $(shell uname)
 ifeq ($(OS),Darwin)
-LIBARCHS ?= x86_64
+LIBARCHS ?= x86_64 arm64
 PREFIX ?= /usr/local
 endif
 
@@ -34,6 +34,10 @@ RANLIB = $(CROSS)ranlib
 STRIP = $(CROSS)strip
 endif
 
+ifeq ($(OS),OS/390)
+RANLIB = touch
+endif
+
 ifneq (,$(findstring yes,$(CAPSTONE_DIET)))
 CFLAGS ?= -Os
 CFLAGS += -DCAPSTONE_DIET
@@ -41,11 +45,21 @@ else
 CFLAGS ?= -O3
 endif
 
+# C99 has been enforced elsewhere like xcode
+CFLAGS += -std=gnu99
+
 ifneq (,$(findstring yes,$(CAPSTONE_X86_ATT_DISABLE)))
 CFLAGS += -DCAPSTONE_X86_ATT_DISABLE
 endif
 
+ifeq ($(CC),xlc)
+CFLAGS += -qcpluscmt -qkeyword=inline -qlanglvl=extc1x -Iinclude
+ifneq ($(OS),OS/390)
+CFLAGS += -fPIC
+endif
+else
 CFLAGS += -fPIC -Wall -Wwrite-strings -Wmissing-prototypes -Iinclude
+endif
 
 ifeq ($(CAPSTONE_USE_SYS_DYN_MEM),yes)
 CFLAGS += -DCAPSTONE_USE_SYS_DYN_MEM
@@ -112,14 +126,15 @@ ifneq (,$(findstring arm,$(CAPSTONE_ARCHS)))
 	LIBOBJ_ARM += $(LIBSRC_ARM:%.c=$(OBJDIR)/%.o)
 endif
 
-DEP_ARM64 =
-DEP_ARM64 += $(wildcard arch/AArch64/AArch64*.inc)
+DEP_AARCH64 =
+DEP_AARCH64 += $(wildcard arch/AArch64/AArch64*.inc)
 
-LIBOBJ_ARM64 =
+LIBOBJ_AARCH64 =
 ifneq (,$(findstring aarch64,$(CAPSTONE_ARCHS)))
 	CFLAGS += -DCAPSTONE_HAS_ARM64
-	LIBSRC_ARM64 += $(wildcard arch/AArch64/AArch64*.c)
-	LIBOBJ_ARM64 += $(LIBSRC_ARM64:%.c=$(OBJDIR)/%.o)
+	CFLAGS += -DCAPSTONE_HAS_AARCH64
+	LIBSRC_AARCH64 += $(wildcard arch/AArch64/AArch64*.c)
+	LIBOBJ_AARCH64 += $(LIBSRC_AARCH64:%.c=$(OBJDIR)/%.o)
 endif
 
 
@@ -144,6 +159,14 @@ ifneq (,$(findstring mips,$(CAPSTONE_ARCHS)))
 	LIBOBJ_MIPS += $(LIBSRC_MIPS:%.c=$(OBJDIR)/%.o)
 endif
 
+DEP_SH = $(wildcard arch/SH/SH*.inc)
+
+LIBOBJ_SH =
+ifneq (,$(findstring sh,$(CAPSTONE_ARCHS)))
+	CFLAGS += -DCAPSTONE_HAS_SH
+	LIBSRC_SH += $(wildcard arch/SH/SH*.c)
+	LIBOBJ_SH += $(LIBSRC_SH:%.c=$(OBJDIR)/%.o)
+endif
 
 DEP_PPC =
 DEP_PPC += $(wildcard arch/PowerPC/PPC*.inc)
@@ -172,7 +195,7 @@ DEP_SYSZ += $(wildcard arch/SystemZ/SystemZ*.inc)
 
 LIBOBJ_SYSZ =
 ifneq (,$(findstring systemz,$(CAPSTONE_ARCHS)))
-	CFLAGS += -DCAPSTONE_HAS_SYSZ
+	CFLAGS += -DCAPSTONE_HAS_SYSTEMZ
 	LIBSRC_SYSZ += $(wildcard arch/SystemZ/SystemZ*.c)
 	LIBOBJ_SYSZ += $(LIBSRC_SYSZ:%.c=$(OBJDIR)/%.o)
 endif
@@ -185,21 +208,16 @@ X86_REDUCE = _reduce
 CFLAGS += -DCAPSTONE_X86_REDUCE -Os
 endif
 
+
 DEP_X86 =
-DEP_X86 += arch/X86/X86GenAsmWriter$(X86_REDUCE).inc
-DEP_X86 += arch/X86/X86GenAsmWriter1$(X86_REDUCE).inc
-DEP_X86 += arch/X86/X86GenDisassemblerTables$(X86_REDUCE).inc
-DEP_X86 += arch/X86/X86GenInstrInfo$(X86_REDUCE).inc
-DEP_X86 += arch/X86/X86GenRegisterInfo.inc
-DEP_X86 += arch/X86/X86MappingInsn$(X86_REDUCE).inc
-DEP_X86 += arch/X86/X86MappingInsnOp$(X86_REDUCE).inc
-DEP_X86 += arch/X86/X86ImmSize.inc
+DEP_X86 += $(wildcard arch/X86/X86*.inc)
 
 LIBOBJ_X86 =
 ifneq (,$(findstring x86,$(CAPSTONE_ARCHS)))
 	CFLAGS += -DCAPSTONE_HAS_X86
 	LIBOBJ_X86 += $(OBJDIR)/arch/X86/X86DisassemblerDecoder.o
 	LIBOBJ_X86 += $(OBJDIR)/arch/X86/X86Disassembler.o
+	LIBOBJ_X86 += $(OBJDIR)/arch/X86/X86InstPrinterCommon.o
 	LIBOBJ_X86 += $(OBJDIR)/arch/X86/X86IntelInstPrinter.o
 # assembly syntax is irrelevant in Diet mode, when this info is suppressed
 ifeq (,$(findstring yes,$(CAPSTONE_DIET)))
@@ -255,11 +273,113 @@ ifneq (,$(findstring evm,$(CAPSTONE_ARCHS)))
 	LIBOBJ_EVM += $(LIBSRC_EVM:%.c=$(OBJDIR)/%.o)
 endif
 
+DEP_RISCV =
+DEP_RISCV += $(wildcard arch/RISCV/RISCV*.inc)
+
+LIBOBJ_RISCV =
+ifneq (,$(findstring riscv,$(CAPSTONE_ARCHS)))
+	CFLAGS += -DCAPSTONE_HAS_RISCV
+	LIBSRC_RISCV += $(wildcard arch/RISCV/RISCV*.c)
+	LIBOBJ_RISCV += $(LIBSRC_RISCV:%.c=$(OBJDIR)/%.o)
+endif
+
+DEP_WASM =
+DEP_WASM += $(wildcard arch/WASM/WASM*.inc)
+
+LIBOBJ_WASM =
+ifneq (,$(findstring wasm,$(CAPSTONE_ARCHS)))
+	CFLAGS += -DCAPSTONE_HAS_WASM
+	LIBSRC_WASM += $(wildcard arch/WASM/WASM*.c)
+	LIBOBJ_WASM += $(LIBSRC_WASM:%.c=$(OBJDIR)/%.o)
+endif
+
+
+DEP_MOS65XX =
+DEP_MOS65XX += $(wildcard arch/MOS65XX/MOS65XX*.inc)
+
+LIBOBJ_MOS65XX =
+ifneq (,$(findstring mos65xx,$(CAPSTONE_ARCHS)))
+	CFLAGS += -DCAPSTONE_HAS_MOS65XX
+	LIBSRC_MOS65XX += $(wildcard arch/MOS65XX/MOS65XX*.c)
+	LIBOBJ_MOS65XX += $(LIBSRC_MOS65XX:%.c=$(OBJDIR)/%.o)
+endif
+
+
+DEP_BPF =
+DEP_BPF += $(wildcard arch/BPF/BPF*.inc)
+
+LIBOBJ_BPF =
+ifneq (,$(findstring bpf,$(CAPSTONE_ARCHS)))
+	CFLAGS += -DCAPSTONE_HAS_BPF
+	LIBSRC_BPF += $(wildcard arch/BPF/BPF*.c)
+	LIBOBJ_BPF += $(LIBSRC_BPF:%.c=$(OBJDIR)/%.o)
+endif
+
+DEP_TRICORE =
+DEP_TRICORE +=$(wildcard arch/TriCore/TriCore*.inc)
+
+LIBOBJ_TRICORE =
+ifneq (,$(findstring tricore,$(CAPSTONE_ARCHS)))
+	CFLAGS += -DCAPSTONE_HAS_TRICORE
+	LIBSRC_TRICORE += $(wildcard arch/TriCore/TriCore*.c)
+	LIBOBJ_TRICORE += $(LIBSRC_TRICORE:%.c=$(OBJDIR)/%.o)
+endif
+
+DEP_ALPHA =
+DEP_ALPHA +=$(wildcard arch/Alpha/Alpha*.inc)
+
+LIBOBJ_ALPHA =
+ifneq (,$(findstring alpha,$(CAPSTONE_ARCHS)))
+	CFLAGS += -DCAPSTONE_HAS_ALPHA
+	LIBSRC_ALPHA += $(wildcard arch/Alpha/Alpha*.c)
+	LIBOBJ_ALPHA += $(LIBSRC_ALPHA:%.c=$(OBJDIR)/%.o)
+endif
+
+DEP_HPPA =
+DEP_HPPA += $(wildcard arch/HPPA/HPPA*.inc)
+
+LIBOBJ_HPPA =
+ifneq (,$(findstring hppa,$(CAPSTONE_ARCHS)))
+	CFLAGS += -DCAPSTONE_HAS_HPPA
+	LIBSRC_HPPA += $(wildcard arch/HPPA/HPPA*.c)
+	LIBOBJ_HPPA += $(LIBSRC_HPPA:%.c=$(OBJDIR)/%.o)
+endif
+
+DEP_LOONGARCH =
+DEP_LOONGARCH += $(wildcard arch/LoongArch/LoongArch*.inc)
+
+LIBOBJ_LOONGARCH =
+ifneq (,$(findstring loongarch,$(CAPSTONE_ARCHS)))
+	CFLAGS += -DCAPSTONE_HAS_LOONGARCH
+	LIBSRC_LOONGARCH += $(wildcard arch/LoongArch/LoongArch*.c)
+	LIBOBJ_LOONGARCH += $(LIBSRC_LOONGARCH:%.c=$(OBJDIR)/%.o)
+endif
+
+DEP_XTENSA =
+DEP_XTENSA += $(wildcard arch/Xtensa/Xtensa*.inc)
+
+LIBOBJ_XTENSA =
+ifneq (,$(findstring xtensa,$(CAPSTONE_ARCHS)))
+	CFLAGS += -DCAPSTONE_HAS_XTENSA
+	LIBSRC_XTENSA += $(wildcard arch/Xtensa/Xtensa*.c)
+	LIBOBJ_XTENSA += $(LIBSRC_XTENSA:%.c=$(OBJDIR)/%.o)
+endif
+
+DEP_ARC =
+DEP_ARC += $(wildcard arch/ARC/ARC*.inc)
+
+LIBOBJ_ARC =
+ifneq (,$(findstring arc,$(CAPSTONE_ARCHS)))
+	CFLAGS += -DCAPSTONE_HAS_ARC
+	LIBSRC_ARC += $(wildcard arch/ARC/ARC*.c)
+	LIBOBJ_ARC += $(LIBSRC_ARC:%.c=$(OBJDIR)/%.o)
+endif
 
 LIBOBJ =
-LIBOBJ += $(OBJDIR)/cs.o $(OBJDIR)/utils.o $(OBJDIR)/SStream.o $(OBJDIR)/MCInstrDesc.o $(OBJDIR)/MCRegisterInfo.o
-LIBOBJ += $(LIBOBJ_ARM) $(LIBOBJ_ARM64) $(LIBOBJ_M68K) $(LIBOBJ_MIPS) $(LIBOBJ_PPC) $(LIBOBJ_SPARC) $(LIBOBJ_SYSZ) $(LIBOBJ_X86) $(LIBOBJ_XCORE) $(LIBOBJ_TMS320C64X) $(LIBOBJ_M680X) $(LIBOBJ_EVM)
-LIBOBJ += $(OBJDIR)/MCInst.o
+LIBOBJ += $(OBJDIR)/cs.o $(OBJDIR)/utils.o $(OBJDIR)/SStream.o $(OBJDIR)/MCInstrDesc.o $(OBJDIR)/MCRegisterInfo.o $(OBJDIR)/MCInst.o $(OBJDIR)/MCInstPrinter.o $(OBJDIR)/Mapping.o
+LIBOBJ += $(LIBOBJ_ARM) $(LIBOBJ_AARCH64) $(LIBOBJ_M68K) $(LIBOBJ_MIPS) $(LIBOBJ_PPC) $(LIBOBJ_RISCV) $(LIBOBJ_SPARC) $(LIBOBJ_SYSZ) $(LIBOBJ_SH)
+LIBOBJ += $(LIBOBJ_X86) $(LIBOBJ_XCORE) $(LIBOBJ_TMS320C64X) $(LIBOBJ_M680X) $(LIBOBJ_EVM) $(LIBOBJ_MOS65XX) $(LIBOBJ_WASM) $(LIBOBJ_BPF)
+LIBOBJ += $(LIBOBJ_TRICORE) $(LIBOBJ_ALPHA) $(LIBOBJ_HPPA) $(LIBOBJ_LOONGARCH) $(LIBOBJ_XTENSA) $(LIBOBJ_ARC)
 
 
 ifeq ($(PKG_EXTRA),)
@@ -274,7 +394,7 @@ endif
 API_MAJOR=$(shell echo `grep -e CS_API_MAJOR include/capstone/capstone.h | grep -v = | awk '{print $$3}'` | awk '{print $$1}')
 VERSION_EXT =
 
-IS_APPLE := $(shell $(CC) -dM -E - < /dev/null 2> /dev/null | grep __apple_build_version__ | wc -l | tr -d " ")
+IS_APPLE := $(shell $(CC) -dM -E - < /dev/null 2> /dev/null | grep __APPLE__ | wc -l | tr -d " ")
 ifeq ($(IS_APPLE),1)
 # on MacOS, do not build in Universal format by default
 MACOS_UNIVERSAL ?= no
@@ -297,7 +417,11 @@ endif
 else
 CFLAGS += $(foreach arch,$(LIBARCHS),-arch $(arch))
 LDFLAGS += $(foreach arch,$(LIBARCHS),-arch $(arch))
+ifeq ($(OS), AIX)
+$(LIBNAME)_LDFLAGS += -qmkshrobj
+else
 $(LIBNAME)_LDFLAGS += -shared
+endif
 # Cygwin?
 IS_CYGWIN := $(shell $(CC) -dumpmachine 2>/dev/null | grep -i cygwin | wc -l)
 ifeq ($(IS_CYGWIN),1)
@@ -329,7 +453,7 @@ ifeq ($(CAPSTONE_SHARED),yes)
 ifeq ($(IS_MINGW),1)
 LIBRARY = $(BLDIR)/$(LIBNAME).$(VERSION_EXT)
 else ifeq ($(IS_CYGWIN),1)
-LIBRARY = $(BLDIR)/$(LIBNAME).$(VERSION_EXT)
+LIBRARY = $(BLDIR)/$(LIBNAME).$(EXT)
 else	# *nix
 LIBRARY = $(BLDIR)/lib$(LIBNAME).$(VERSION_EXT)
 CFLAGS += -fvisibility=hidden
@@ -353,14 +477,6 @@ PKGCFGF = $(BLDIR)/$(LIBNAME).pc
 all: $(LIBRARY) $(ARCHIVE) $(PKGCFGF)
 ifeq (,$(findstring yes,$(CAPSTONE_BUILD_CORE_ONLY)))
 	@V=$(V) CC=$(CC) $(MAKE) -C cstool
-ifndef BUILDDIR
-	$(MAKE) -C tests
-	$(MAKE) -C suite/fuzz
-else
-	$(MAKE) -C tests BUILDDIR=$(BLDIR)
-	$(MAKE) -C suite/fuzz BUILDDIR=$(BLDIR)
-endif
-	$(call install-library,$(BLDIR)/tests/)
 endif
 
 ifeq ($(CAPSTONE_SHARED),yes)
@@ -373,13 +489,14 @@ else
 endif
 endif
 
-$(LIBOBJ): config.mk *.h include/capstone/*.h
+$(LIBOBJ): config.mk
 
 $(LIBOBJ_ARM): $(DEP_ARM)
-$(LIBOBJ_ARM64): $(DEP_ARM64)
+$(LIBOBJ_AARCH64): $(DEP_AARCH64)
 $(LIBOBJ_M68K): $(DEP_M68K)
 $(LIBOBJ_MIPS): $(DEP_MIPS)
 $(LIBOBJ_PPC): $(DEP_PPC)
+$(LIBOBJ_SH): $(DEP_SH)
 $(LIBOBJ_SPARC): $(DEP_SPARC)
 $(LIBOBJ_SYSZ): $(DEP_SYSZ)
 $(LIBOBJ_X86): $(DEP_X86)
@@ -387,6 +504,16 @@ $(LIBOBJ_XCORE): $(DEP_XCORE)
 $(LIBOBJ_TMS320C64X): $(DEP_TMS320C64X)
 $(LIBOBJ_M680X): $(DEP_M680X)
 $(LIBOBJ_EVM): $(DEP_EVM)
+$(LIBOBJ_RISCV): $(DEP_RISCV)
+$(LIBOBJ_WASM): $(DEP_WASM)
+$(LIBOBJ_MOS65XX): $(DEP_MOS65XX)
+$(LIBOBJ_BPF): $(DEP_BPF)
+$(LIBOBJ_TRICORE): $(DEP_TRICORE)
+$(LIBOBJ_ALPHA): $(DEP_ALPHA)
+$(LIBOBJ_HPPA): $(DEP_HPPA)
+$(LIBOBJ_LOONGARCH): $(DEP_LOONGARCH)
+$(LIBOBJ_XTENSA): $(DEP_XTENSA)
+$(LIBOBJ_ARC): $(DEP_ARC)
 
 ifeq ($(CAPSTONE_STATIC),yes)
 $(ARCHIVE): $(LIBOBJ)
@@ -406,6 +533,12 @@ ifeq ($(V),0)
 else
 	$(generate-pkgcfg)
 endif
+
+# create a list of auto dependencies
+AUTODEPS:= $(patsubst %.o,%.d, $(LIBOBJ))
+
+# include by auto dependencies
+-include $(AUTODEPS)
 
 install: $(PKGCFGF) $(ARCHIVE) $(LIBRARY)
 	mkdir -p $(LIBDIR)
@@ -434,13 +567,12 @@ clean:
 	rm -f $(LIBOBJ)
 	rm -f $(BLDIR)/lib$(LIBNAME).* $(BLDIR)/$(LIBNAME).pc
 	rm -f $(PKGCFGF)
+	rm -f $(AUTODEPS)
 	[ "${ANDROID}" = "1" ] && rm -rf android-ndk-* || true
 
 ifeq (,$(findstring yes,$(CAPSTONE_BUILD_CORE_ONLY)))
 	$(MAKE) -C cstool clean
-	$(MAKE) -C tests clean
 	$(MAKE) -C suite/fuzz clean
-	rm -f $(BLDIR)/tests/lib$(LIBNAME).$(EXT)
 endif
 
 ifdef BUILDDIR
@@ -465,18 +597,16 @@ dist:
 	git archive --format=tar.gz --prefix=capstone-$(DIST_VERSION)/ $(TAG) > capstone-$(DIST_VERSION).tgz
 	git archive --format=zip --prefix=capstone-$(DIST_VERSION)/ $(TAG) > capstone-$(DIST_VERSION).zip
 
-
-TESTS = test_basic test_detail test_arm test_arm64 test_m68k test_mips test_ppc test_sparc
-TESTS += test_systemz test_x86 test_xcore test_iter test_evm
-TESTS += test_basic.static test_detail.static test_arm.static test_arm64.static
-TESTS += test_m68k.static test_mips.static test_ppc.static test_sparc.static
-TESTS += test_systemz.static test_x86.static test_xcore.static test_m680x.static
-TESTS += test_skipdata test_skipdata.static test_iter.static test_evm.static
-check: $(TESTS) fuzztest fuzzallcorp
-test_%:
-	./tests/$@ > /dev/null && echo OK || echo FAILED
+checkfuzz: fuzztest fuzzallcorp
 
 FUZZ_INPUTS = $(shell find suite/MC -type f -name '*.cs')
+
+buildfuzz:
+ifndef BUILDDIR
+	$(MAKE) -C suite/fuzz
+else
+	$(MAKE) -C suite/fuzz BUILDDIR=$(BLDIR)
+endif
 
 fuzztest:
 	./suite/fuzz/fuzz_disasm $(FUZZ_INPUTS)
@@ -511,9 +641,12 @@ define install-library
 endef
 endif
 
+ifeq ($(AR_FLAGS),)
+AR_FLAGS := q
+endif
 
 define create-archive
-	$(AR) q $(ARCHIVE) $(LIBOBJ)
+	$(AR) $(AR_FLAGS) $(ARCHIVE) $(LIBOBJ)
 	$(RANLIB) $(ARCHIVE)
 endef
 
@@ -532,5 +665,7 @@ define generate-pkgcfg
 	echo 'includedir=$(INCDIR)/capstone' >> $(PKGCFGF)
 	echo 'archive=$${libdir}/libcapstone.a' >> $(PKGCFGF)
 	echo 'Libs: -L$${libdir} -lcapstone' >> $(PKGCFGF)
+	echo 'Libs.private: -L$${libdir} -l:libcapstone.a' >> $(PKGCFGF)
 	echo 'Cflags: -I$${includedir}' >> $(PKGCFGF)
+	echo 'archs=${CAPSTONE_ARCHS}' >> $(PKGCFGF)
 endef

@@ -41,7 +41,9 @@ typedef struct {
 
 // This struct is originally from qemu/include/exec/ramlist.h
 typedef struct RAMList {
+    bool freed;
     RAMBlock *mru_block;
+    RAMBlock *last_block;
     QLIST_HEAD(, RAMBlock) blocks;
 } RAMList;
 

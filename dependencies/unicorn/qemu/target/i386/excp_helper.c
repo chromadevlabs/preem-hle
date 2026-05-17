@@ -643,11 +643,6 @@ do_check_protect_pse36:
     paddr &= TARGET_PAGE_MASK;
     assert(prot & (1 << is_write1));
 
-    // Unicorn: indentity map guest virtual address to host virtual address
-    vaddr = addr & TARGET_PAGE_MASK;
-    paddr = vaddr;
-    //printf(">>> map address %"PRIx64" to %"PRIx64"\n", vaddr, paddr);
- 
     tlb_set_page_with_attrs(cs, vaddr, paddr, cpu_get_mem_attrs(env),
                             prot, mmu_idx, page_size);
     return 0;
@@ -686,8 +681,9 @@ bool x86_cpu_tlb_fill(CPUState *cs, vaddr addr, int size,
 
     env->retaddr = retaddr;
     if (handle_mmu_fault(cs, addr, size, access_type, mmu_idx)) {
+        if (probe)
+	    return false;
         /* FIXME: On error in get_hphys we have already jumped out.  */
-        g_assert(!probe);
         raise_exception_err_ra(env, cs->exception_index,
                                env->error_code, retaddr);
     }
